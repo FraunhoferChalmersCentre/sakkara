@@ -1,2 +1,2 @@
 # hierlinreg
-Tools for hierarchical linear regression using hlr
+Tools for hierarchical linear regression using PyMC
