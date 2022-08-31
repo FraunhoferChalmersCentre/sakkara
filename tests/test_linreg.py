@@ -4,7 +4,7 @@ import pytest
 import pymc as pm
 
 from hierlinreg.hierarchical import HierarchicalVariable, Likelihood
-from hierlinreg.linear import retrieve_group_names, create_linear_model
+from hierlinreg.linreg import retrieve_group_names, init_model
 
 
 @pytest.fixture
@@ -32,8 +32,9 @@ def test_retrieve_groups():
     rv_building = HierarchicalVariable(pm.Normal, group_name='building', mu=rv_global)
     rv_sensor = HierarchicalVariable(pm.Normal, group_name='sensor', mu=rv_building)
 
-    groups = retrieve_group_names({'sensor': rv_sensor})
-    assert all(n in groups for n in ['sensor', 'building', 'global'])
+    group_cols, coeff_cols = retrieve_group_names({'a': rv_sensor})
+    assert all(n in group_cols for n in ['sensor', 'building', 'global'])
+    assert coeff_cols == ['a']
 
 
 def test_create_linear_model(df: pd.DataFrame):
@@ -48,7 +49,7 @@ def test_create_linear_model(df: pd.DataFrame):
 
     likelihood = Likelihood(pm.Normal, 'mu', sigma=HierarchicalVariable(pm.Exponential, lam=1))
 
-    model = create_linear_model(df, 'c', model_spec, likelihood)
+    model = init_model(df, 'c', model_spec, likelihood)
     assert pm.draw(model.a_sensor).shape == (4,)
     assert pm.draw(model.mu_a_global).shape == (1,)
     assert pm.draw(model.sigma_a_global).shape == (1,)

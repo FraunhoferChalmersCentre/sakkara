@@ -8,12 +8,13 @@ from hierlinreg.relation import init_groups
 
 
 @pytest.fixture
-def df():
+def groupset():
     df = pd.DataFrame(
         {
             'building': np.repeat(list('ab'), 10),
             'sensor': np.repeat(list('stuv'), 5),
-            'time': np.tile(np.arange(5), 4)
+            'time': np.tile(np.arange(5), 4),
+            'random_values': np.random.randn(20)
         })
 
     bidx, _ = df['building'].factorize()
@@ -21,11 +22,10 @@ def df():
 
     df['value'] = bidx * 100 + sidx * 10 + np.random.randn(20)
 
-    return df
+    return init_groups(df, ['building', 'sensor'], ['random_values'])
 
 
-def test_build_variables(df: pd.DataFrame):
-    groupset = init_groups(df, 'building', 'sensor')
+def test_build_variables(groupset):
     coords = groupset.coords()
 
     rv_global = HierarchicalVariable(pm.Normal, mu=0)

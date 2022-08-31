@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 
 import numpy as np
 import pandas as pd
@@ -70,16 +70,14 @@ def trace_hierarchical_order(df: pd.DataFrame, *groups: str) -> List[str]:
     return ordered
 
 
-def init_groups(df: pd.DataFrame, *cols: str) -> GroupSet:
+def init_groups(df: pd.DataFrame, group_cols: List[str], coeff_cols: List[str]) -> GroupSet:
+    df = df.copy()
     df['observation'] = np.arange(len(df))
 
-    col_names = list(cols)
-    col_names.append('observation')
-
     df['global'] = 0
-    col_names = ['global'] + col_names
+    group_col_names = ['global'] + group_cols + ['observation']
 
-    ordered = trace_hierarchical_order(df, *col_names)
+    ordered = trace_hierarchical_order(df, *group_col_names)
 
     first_members = [GroupMember(name, i) for i, name in enumerate(df[ordered[0]].unique())]
     groups = [Group(ordered[0], first_members)]
@@ -92,6 +90,6 @@ def init_groups(df: pd.DataFrame, *cols: str) -> GroupSet:
                    enumerate(df[col].unique())]
         groups.append(Group(col, members, parent=parent))
 
-    groups.append(Group('column', [GroupMember(c, i) for i, c in enumerate(cols)]))
+    groups.append(Group('column', [GroupMember(c, i) for i, c in enumerate(coeff_cols)]))
 
     return GroupSet({g.name: g for g in groups})
