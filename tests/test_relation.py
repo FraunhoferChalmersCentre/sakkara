@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hierlinreg.relation import trace_hierarchical_order, init_groups
+from sakkara.relation import trace_hierarchical_order, init_groupset
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def df():
 
 @pytest.fixture
 def groupset(df: pd.DataFrame):
-    return init_groups(df, list('abcd'), ['random_values'])
+    return init_groupset(df, set('abcd'), {'random_values'})
 
 
 def test_trace_hierarchical_relations(df: pd.DataFrame):
@@ -32,7 +32,7 @@ def test_trace_hierarchical_relations(df: pd.DataFrame):
 
 
 def test_init_groups(groupset):
-    expected_cols = ['global'] + list('abcd') + ['column', 'observation']
+    expected_cols = ['global'] + list('abcd') + ['column', 'obs']
     assert all(e in groupset.groups.keys() for e in expected_cols)
 
     assert groupset.groups['global'].parent is None
@@ -48,17 +48,17 @@ def test_init_groups(groupset):
             list(map(lambda m: m.parent in groupset.groups[gnames[i - 1]].members, groupset.groups[gnames[i]].members)))
 
 
-def test_set_get_coords(groupset):
+def test_get_coords(groupset):
     coords = groupset.coords()
 
-    assert list(coords['a']) == list(range(2))
-    assert list(coords['b']) == list(range(4))
-    assert list(coords['c']) == list(range(8))
-    assert list(coords['d']) == list(range(16))
+    assert list(coords['a']) == list(map(str, range(2)))
+    assert list(coords['b']) == list(map(str, range(4)))
+    assert list(coords['c']) == list(map(str, range(8)))
+    assert list(coords['d']) == list(map(str, range(16)))
 
 
 def test_get_parent_mapping(groupset):
-    assert list(groupset['a'].get_parent_mapping('global')['global']) == [0, 0]
+    assert list(groupset['a'].get_parent_mapping('global')['global']) == ['global', 'global']
     assert list(groupset['b'].get_parent_mapping('a')['a']) == list(map(str, [0, 0, 1, 1]))
     assert list(groupset['b'].get_parent_mapping('a')['a_id']) == [0, 0, 1, 1]
     assert list(groupset['c'].get_parent_mapping('b')['b']) == list(map(str, [0, 0, 1, 1, 2, 2, 3, 3]))
@@ -74,3 +74,12 @@ def test_get_parent_mapping(groupset):
     assert list(groupset['d'].get_parent_mapping('a')['a']) == list(
         map(str, [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]))
     assert list(groupset['d'].get_parent_mapping('a')['a_id']) == [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+
+
+def test_is_parent(groupset):
+    assert not all(groupset['a'].is_parent(k) for k in list('bcd'))
+    assert groupset['b'].is_parent('a')
+    assert not all(groupset['b'].is_parent(k) for k in list('cd'))
+    assert all(groupset['c'].is_parent(k) for k in list('ab'))
+    assert not groupset['c'].is_parent('d')
+    assert all(groupset['d'].is_parent(k) for k in list('abc'))

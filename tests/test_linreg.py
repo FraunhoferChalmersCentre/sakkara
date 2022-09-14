@@ -1,60 +1,102 @@
 import numpy as np
 import pandas as pd
 import pytest
+from numpy.random import default_rng
+import arviz as az
 import pymc as pm
 
-from hierlinreg.hierarchical import HierarchicalVariable, Likelihood
-from hierlinreg.linreg import retrieve_group_names, init_model
+from sakkara.model import HierarchicalVariable as HV, Likelihood, HierarchicalModel, DataContainer, VariableContainer
 
 
 @pytest.fixture
 def df():
-    df = pd.DataFrame(
-        {
-            'building': np.repeat(list('ab'), 10),
-            'sensor': np.repeat(list('stuv'), 5),
-            'time': np.tile(np.arange(5), 4),
-            'a': np.random.randn(20),
-            'b': np.random.randn(20),
-            'c': np.random.randn(20)
-        })
+    rng = default_rng(100)
 
-    bidx, _ = df['building'].factorize()
-    sidx, _ = df['sensor'].factorize()
+    N = 5
 
-    df['value'] = bidx * 100 + sidx * 10 + np.random.randn(20)
+    heating_power = np.repeat(1, N)
+    outdoor_temperature = np.cos(np.linspace(0, 2 * np.pi, N)) - 1 + rng.uniform(-1, 1, N)
+    time = np.arange(N)
+
+    df = pd.DataFrame({'building': np.repeat(['a', 'b'], 2 * N),
+                       'room': np.repeat(['a1', 'a2', 'b1', 'b2'], N),
+                       'time': np.tile(time, 4),
+                       'heating_power': np.tile(heating_power, 4),
+                       'outdoor_temperature': np.tile(outdoor_temperature, 4),
+                       'indoor_temperature': 20
+                       })
+
+    df.loc[df['room'] == 'a1', 'indoor_temperature'] += (
+            heating_power * 1 + outdoor_temperature * 1).cumsum()
+    df.loc[df['room'] == 'a2', 'indoor_temperature'] += (
+            heating_power * .8 + outdoor_temperature * 1).cumsum()
+    df.loc[df['room'] == 'b1', 'indoor_temperature'] += (
+            heating_power * .6 + outdoor_temperature * .4).cumsum()
+    df.loc[df['room'] == 'b2', 'indoor_temperature'] += (
+            heating_power * .4 + outdoor_temperature * .4).cumsum()
+
+    df['y'] = df.groupby('room')['indoor_temperature'].diff()
+    df = df.dropna()
 
     return df
 
 
-def test_retrieve_groups():
-    rv_global = HierarchicalVariable(pm.Normal, mu=0)
-    rv_building = HierarchicalVariable(pm.Normal, group_name='building', mu=rv_global)
-    rv_sensor = HierarchicalVariable(pm.Normal, group_name='sensor', mu=rv_building)
+@pytest.fixture
+def model(df):
+    coeff = HV(pm.Normal,
+               name='outdoor_temperature',
+               group='building',
+               mu=HV(
+                   pm.Normal
+               ),
+               sigma=HV(
+                   pm.Exponential,
+                   lam=1000
+               )
+               )
+    intercept = HV(pm.Normal,
+                   name='heating_power',
+                   group='room',
+                   mu=HV(
+                       pm.Normal,
+                       group='building',
+                       mu=HV(
+                           pm.Normal
+                       ),
+                       sigma=HV(
+                           pm.Exponential,
+                           lam=10
+                       )
+                   ),
+                   sigma=HV(
+                       pm.Exponential,
+                       lam=1000
+                   )
+                   )
 
-    group_cols, coeff_cols = retrieve_group_names({'a': rv_sensor})
-    assert all(n in group_cols for n in ['sensor', 'building', 'global'])
-    assert coeff_cols == ['a']
+    data = DataContainer(df)
+    coeffs = VariableContainer([coeff])
+
+    likelihood = Likelihood(pm.Normal, mu=(coeffs * data).sum() + intercept, sigma=HV(pm.Exponential, lam=1000),
+                            data=data['y'])
+    model = HierarchicalModel(df, likelihood)
+
+    return model
 
 
-def test_create_linear_model(df: pd.DataFrame):
-    model_spec = {
-        'a': HierarchicalVariable(pm.Normal, 'sensor', mu=HierarchicalVariable(pm.Normal),
-                                  sigma=HierarchicalVariable(pm.HalfCauchy, beta=1)),
-        'b': HierarchicalVariable(pm.Normal, 'sensor',
-                                  mu=HierarchicalVariable(pm.Normal, 'building',
-                                                          mu=HierarchicalVariable(pm.Normal))
-                                  )
-    }
+def test_sampling(model):
+    with model.build():
+        idata = pm.fit(100000, method='advi', random_seed=1000).sample(1000)
 
-    likelihood = Likelihood(pm.Normal, 'mu', sigma=HierarchicalVariable(pm.Exponential, lam=1))
-
-    model = init_model(df, 'c', model_spec, likelihood)
-    assert pm.draw(model.a_sensor).shape == (4,)
-    assert pm.draw(model.mu_a_global).shape == (1,)
-    assert pm.draw(model.sigma_a_global).shape == (1,)
-    assert pm.draw(model.b_sensor).shape == (4,)
-    assert pm.draw(model.mu_b_building).shape == (2,)
-    assert pm.draw(model.mu_mu_b_global).shape == (1,)
-    assert pm.draw(model.likelihood_observation).shape == (20,)
-    assert pm.draw(model.sigma_likelihood_global).shape == (1,)
+    result = az.summary(idata)
+    assert pytest.approx(result.loc['mu_outdoor_temperature', 'mean'], abs=5e-2) == .7
+    assert pytest.approx(result.loc['outdoor_temperature[a]', 'mean']) == 1.
+    assert pytest.approx(result.loc['outdoor_temperature[b]', 'mean']) == .4
+    assert pytest.approx(result.loc['mu_mu_heating_power', 'mean'], abs=5e-2) == .7
+    assert pytest.approx(result.loc['mu_heating_power[a]', 'mean'], abs=5e-2) == .9
+    assert pytest.approx(.9, result.loc['mu_heating_power[b]', 'mean'], abs=5e-2) == .5
+    assert pytest.approx(result.loc['heating_power[a1]', 'mean']) == 1.
+    assert pytest.approx(result.loc['heating_power[a2]', 'mean']) == .8
+    assert pytest.approx(result.loc['heating_power[b1]', 'mean']) == .6
+    assert pytest.approx(result.loc['heating_power[b2]', 'mean']) == .4
+    assert pytest.approx(result.loc['sigma_mu_heating_power', 'mean'], abs=5e-2) == .2

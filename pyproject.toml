@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "hierlinreg"
+name = "sakkara"
 version = "0.1.0"
-description = "Tools for hierarchical linear regression using PyMC"
+description = "Tools for hierarchical modelling with PyMC"
 authors = ["Henrik Håkansson <henrik.hakansson@fcc.chalmers.se>"]
 
 [tool.poetry.dependencies]
@@ -10,6 +10,7 @@ pymc = "^4.1.7"
 pytest = "^7.1.2"
 numpy = "^1.23.2"
 pandas = "^1.4.3"
+jupyter = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
 

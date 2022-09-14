@@ -35,6 +35,10 @@ class Group:
 
         return df
 
+    def is_parent(self, other: str):
+        pm = self.get_parent_mapping(other)
+        return other in pm.columns
+
 
 @dataclass(frozen=True)
 class GroupSet:
@@ -44,7 +48,7 @@ class GroupSet:
         return self.groups[item]
 
     def coords(self):
-        c = {name: group.get_members().index for name, group in self.groups.items()}
+        c = {name: np.array([m.name for m in group.members], dtype=object) for name, group in self.groups.items()}
         return c
 
 
@@ -70,12 +74,12 @@ def trace_hierarchical_order(df: pd.DataFrame, *groups: str) -> List[str]:
     return ordered
 
 
-def init_groups(df: pd.DataFrame, group_cols: List[str], coeff_cols: List[str]) -> GroupSet:
+def init_groupset(df: pd.DataFrame, group_cols: Set[str], coeff_cols: Set[str]) -> GroupSet:
     df = df.copy()
-    df['observation'] = np.arange(len(df))
+    df['obs'] = np.arange(len(df))
 
-    df['global'] = 0
-    group_col_names = ['global'] + group_cols + ['observation']
+    df['global'] = 'global'
+    group_col_names = group_cols.union({'global', 'obs'})
 
     ordered = trace_hierarchical_order(df, *group_col_names)
 
