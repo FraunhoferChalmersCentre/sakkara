@@ -1,31 +1,34 @@
 import abc
 import operator
 from abc import ABC
-from functools import cache
-from typing import Callable, Set, Any, Dict, Iterable
+from typing import Callable, Set, Any, Dict, List
 
 import numpy as np
 import pandas as pd
 import pymc as pm
+import aesara.tensor as at
 
-from sakkara.relation import GroupSet, init_groupset
+from sakkara.relation.compositegroup import CompositeGroupPair
+from sakkara.relation.groupset import GroupSet, init
 
 
 class ModelComponent:
-    def __init__(self, name: str = None, group: str = None):
-        self.group = group
+    def __init__(self, name: str = None, group_name: str = None):
+        self.group_name = group_name
         self.name = name
+        self.variable = None
+        self.group = None
 
     @abc.abstractmethod
-    def retrieve_groups(self) -> Set[str]:
+    def retrieve_group_names(self) -> Set[str]:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def retrieve_names(self) -> Set[str]:
-        raise NotImplementedError
+    def clear(self):
+        self.variable = None
+        self.group = None
 
     @abc.abstractmethod
-    def build(self, groupset: GroupSet):
+    def build(self, groupset: GroupSet) -> None:
         raise NotImplementedError
 
     def __add__(self, other):
@@ -51,159 +54,144 @@ class CompositeComponent(ModelComponent, ABC):
         self.b = b
         self.op = op
 
+    def clear(self):
+        super(CompositeComponent, self).clear()
+        self.a.clear()
+        self.b.clear()
+
     def build(self, groupset: GroupSet):
-        _ = self.a.build(groupset)
-        _ = self.b.build(groupset)
+        if self.a.variable is None:
+            self.a.build(groupset)
+        if self.b.variable is None:
+            self.b.build(groupset)
 
-        a_parent_to_b = groupset[self.b.group].is_parent(self.a.group)
-        if a_parent_to_b:
-            child = self.b
-            parent = self.a
+        self.group = CompositeGroupPair(self.a.group, self.b.group)
+
+        a_mapping = list(map(lambda m: m.index, self.group.map_from(self.a.group)))
+        b_mapping = list(map(lambda m: m.index, self.group.map_from(self.b.group)))
+
+        if 1 < len(np.unique(a_mapping)) and 1 < len(np.unique(b_mapping)):
+            self.variable = self.op(self.a.variable[a_mapping], self.b.variable[b_mapping])
         else:
-            child = self.a
-            parent = self.b
+            self.variable = self.op(self.a.variable, self.b.variable)
 
-        self.group = child.group
+    def retrieve_group_names(self) -> Set[str]:
+        return self.a.retrieve_group_names().union(self.b.retrieve_group_names())
 
-        mapping = groupset[child.group].get_parent_mapping(parent.group)[f'{parent.group}_id'].values
-        if 1 < len(np.unique(mapping)):
-            return self.op(child.build(groupset), parent.build(groupset)[mapping])
-        else:
-            return self.op(child.build(groupset), parent.build(groupset))
 
-    def retrieve_groups(self) -> Set[str]:
-        return self.a.retrieve_groups().union(self.b.retrieve_groups())
+class Container(ModelComponent, ABC):
+    def __init__(self, components: List[ModelComponent], keys: List[str], name: str = None, group_name: str = None):
+        super().__init__(name, group_name)
+        self.keys = keys
+        self.key_mapping = {k: i for i, k in enumerate(keys)}
+        self.components = components
 
-    def retrieve_names(self) -> Set[str]:
-        return self.a.retrieve_names().union(self.b.retrieve_names())
+    def clear(self):
+        super(Container, self).clear()
+        for c in self.components:
+            c.clear()
+
+    def build(self, groupset: GroupSet):
+        build_components = []
+        self.group = groupset[self.group_name]
+
+        for k, c in zip(self.keys, self.components):
+            if c.variable is None:
+                c.name = f'{self.name}_{k}'
+                c.build(groupset)
+            build_components.append(c.variable)
+
+        self.variable = at.stack(build_components)
+
+    def retrieve_group_names(self) -> Set[str]:
+        return {self.group_name}
+
+    def __getitem__(self, item) -> ModelComponent:
+        return self.components[self.key_mapping[item]]
 
 
 class HierarchicalVariable(ModelComponent):
 
-    def __init__(self, distribution: Callable, group: str = 'global', name=None, **kwargs):
-        super().__init__(name, group)
+    def __init__(self, distribution: Callable, group_name: str = 'global', name=None, **kwargs):
+        super().__init__(name, group_name)
         self.distribution = distribution
         self.params = kwargs
         self.variable = None
+        self.group = None
 
-    def build(self, groupset: GroupSet):
-        if self.variable is not None:
-            return self.variable
+    def build_parameter(self, param_name: str, groupset: GroupSet, component: ModelComponent) -> at.TensorVariable:
+        if component.variable is None:
+            component.name = f'{param_name}_{self.name}' if component.name is None else component.name
+            component.build(groupset)
+        if component.group_name is not None:
+            mapping = list(map(lambda m: m.index, self.group.map_from(component.group)))
+            if 1 < len(np.unique(mapping)):
+                return component.variable[mapping]
+
+        return component.variable
+
+    def build(self, groupset: GroupSet) -> None:
 
         built_params = {}
 
-        if self.group is None or self.group == 'global':
+        if self.group_name is None or self.group_name == 'global':
             dims = None
+            self.group = groupset['global']
         else:
-            dims = self.group
+            dims = self.group_name
+            self.group = groupset[self.group_name]
 
-        for k, v in self.params.items():
-            if isinstance(v, ModelComponent):
-                v.name = f'{k}_{self.name}' if v.name is None else v.name
-                built_component = v.build(groupset)
-                if v.group is not None:
-                    group = groupset[self.group]
-                    parent_mapping = group.get_parent_mapping(v.group)[f'{v.group}_id'].values
-                    if 1 < len(np.unique(parent_mapping)):
-                        built_params[k] = built_component[parent_mapping]
-                    else:
-                        built_params[k] = built_component
-                else:
-                    built_params[k] = built_component
+        for param_name, component in self.params.items():
+            if isinstance(component, ModelComponent):
+                built_params[param_name] = self.build_parameter(param_name, groupset, component)
             else:
-                built_params[k] = v
+                built_params[param_name] = component
 
         self.variable = self.distribution(self.name, **built_params, dims=dims)
         return self.variable
 
-    def retrieve_groups(self) -> Set[str]:
+    def retrieve_group_names(self) -> Set[str]:
         groups = set()
         for k, v in self.params.items():
             if isinstance(v, ModelComponent):
-                parent_groups = v.retrieve_groups()
+                parent_groups = v.retrieve_group_names()
                 groups = groups.union(parent_groups)
-        if self.group is not None:
-            groups.add(self.group)
+        if self.group_name is not None:
+            groups.add(self.group_name)
 
         return groups
-
-    def retrieve_names(self) -> Set[str]:
-        names = set()
-        for k, v in self.params.items():
-            if isinstance(v, ModelComponent):
-                parent_names = v.retrieve_names()
-                names = names.union(parent_names)
-        if self.name is not None:
-            names.add(self.name)
-
-        return names
-
-
-class Container:
-    def __init__(self, components: Dict[str, ModelComponent]):
-        self.components = components
-
-    def __getitem__(self, item):
-        return self.components[item]
-
-    def sum(self) -> ModelComponent:
-        s = None
-        for k, v in self.components.items():
-            if s is None:
-                s = v
-            else:
-                s = s + v
-        return s
-
-    def math_operation(self, other: 'Container', op):
-        common_keys = set(self.components.keys()).intersection(other.components.keys())
-        return Container({k: CompositeComponent(self.components[k], other[k], op, k) for k in common_keys})
-
-    def __add__(self, other: 'Container') -> 'Container':
-        return self.math_operation(other, operator.add)
-
-    def __sub__(self, other) -> 'Container':
-        return self.math_operation(other, operator.sub)
-
-    def __mul__(self, other) -> 'Container':
-        return self.math_operation(other, operator.mul)
-
-    def __rmul__(self, other) -> 'Container':
-        return self.math_operation(other, operator.mul)
-
-    def __truediv__(self, other) -> 'Container':
-        return self.math_operation(other, operator.truediv)
 
 
 class DataContainer(Container, ABC):
     def __init__(self, df: pd.DataFrame):
-        super().__init__(
-            {k: HierarchicalVariable(pm.Data, value=df.loc[:, k], name=f'{k}_data', group='obs', mutable=False) for k in
-             df.columns}, )
-
-
-class VariableContainer(Container, ABC):
-    def __init__(self, components: Iterable[ModelComponent]):
-        super().__init__({c.name: c for c in components})
+        keys = list(df.columns)
+        components = [
+            HierarchicalVariable(pm.Data, value=df.loc[:, k], name=f'{k}_data', group_name='obs', mutable=False) for k
+            in keys]
+        super().__init__(components, keys, group_name='obs')
 
 
 class Likelihood(HierarchicalVariable):
-    def __init__(self, distribution: Callable, data: ModelComponent, **kwargs):
+    def __init__(self, distribution: Callable, data: ModelComponent, name=None, **kwargs):
         super().__init__(distribution, **kwargs)
         self.data = data
-        self.group = 'obs'
-        self.name = 'likelihood'
+        self.group_name = 'obs'
+        self.name = 'likelihood' if name is None else name
+
+    def build(self, groupset):
+        self.params['observed'] = self.data.build(groupset)
+        super(Likelihood, self).build(groupset)
 
 
-class HierarchicalModel:
-    def __init__(self, df: pd.DataFrame, likelihood: Likelihood):
-        self.likelihood = likelihood
-        self.df = df
+def build(df: pd.DataFrame, likelihood: Likelihood):
+    likelihood.clear()
 
-        self.groupset = init_groupset(self.df, likelihood.retrieve_groups(), likelihood.retrieve_names())
+    tmp_df = df.copy()
+    tmp_df['global'] = 'global'
+    tmp_df['obs'] = np.arange(len(df))
 
-    def build(self) -> pm.Model:
-        with pm.Model(coords=self.groupset.coords()) as model:
-            self.likelihood.params['observed'] = self.likelihood.data.build(self.groupset)
-            _ = self.likelihood.build(self.groupset)
-        return model
+    groupset = init(tmp_df.loc[:, list(likelihood.retrieve_group_names())])
+
+    with pm.Model(coords=groupset.coords()) as model:
+        likelihood.build(groupset)
+    return model

@@ -5,7 +5,7 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model import HierarchicalVariable as HV, Likelihood, HierarchicalModel, DataContainer, VariableContainer
+from sakkara.model import HierarchicalVariable as HV, Likelihood, DataContainer, build
 
 
 @pytest.fixture
@@ -42,10 +42,10 @@ def df():
 
 
 @pytest.fixture
-def model(df):
+def likelihood(df):
     coeff = HV(pm.Normal,
                name='outdoor_temperature',
-               group='building',
+               group_name='building',
                mu=HV(
                    pm.Normal
                ),
@@ -56,10 +56,10 @@ def model(df):
                )
     intercept = HV(pm.Normal,
                    name='heating_power',
-                   group='room',
+                   group_name='room',
                    mu=HV(
                        pm.Normal,
-                       group='building',
+                       group_name='building',
                        mu=HV(
                            pm.Normal
                        ),
@@ -75,17 +75,15 @@ def model(df):
                    )
 
     data = DataContainer(df)
-    coeffs = VariableContainer([coeff])
 
-    likelihood = Likelihood(pm.Normal, mu=(coeffs * data).sum() + intercept, sigma=HV(pm.Exponential, lam=1000),
+    likelihood = Likelihood(pm.Normal, mu=coeff * data['outdoor_temperature'] + intercept,
+                            sigma=HV(pm.Exponential, lam=1000),
                             data=data['y'])
-    model = HierarchicalModel(df, likelihood)
-
-    return model
+    return likelihood
 
 
-def test_sampling(model):
-    with model.build():
+def test_sampling(likelihood, df):
+    with build(df, likelihood):
         idata = pm.fit(100000, method='advi', random_seed=1000).sample(1000)
 
     result = az.summary(idata)
