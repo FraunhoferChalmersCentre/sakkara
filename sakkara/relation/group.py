@@ -88,7 +88,7 @@ class GroupPair(Group, Generic[T]):
     def get_representation_groups(self) -> Set['Group']:
         a_parent = self.a_parent_b()
         if a_parent is not None:
-            child = self.b if a_parent else self.b
+            child = self.b if a_parent else self.a
             return child.get_representation_groups()
         else:
             return self.a.get_representation_groups().union(self.b.get_representation_groups())

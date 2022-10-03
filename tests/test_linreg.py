@@ -5,7 +5,8 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model import HierarchicalVariable as HV, Likelihood, DataContainer, build
+from sakkara.model.utils import build, Likelihood, DataConcatComponent
+from sakkara.model.single_component import HierarchicalComponent as HC
 
 
 @pytest.fixture
@@ -43,41 +44,41 @@ def df():
 
 @pytest.fixture
 def likelihood(df):
-    coeff = HV(pm.Normal,
+    coeff = HC(pm.Normal,
                name='outdoor_temperature',
                group_name='building',
-               mu=HV(
+               mu=HC(
                    pm.Normal
                ),
-               sigma=HV(
+               sigma=HC(
                    pm.Exponential,
                    lam=1000
                )
                )
-    intercept = HV(pm.Normal,
+    intercept = HC(pm.Normal,
                    name='heating_power',
                    group_name='room',
-                   mu=HV(
+                   mu=HC(
                        pm.Normal,
                        group_name='building',
-                       mu=HV(
+                       mu=HC(
                            pm.Normal
                        ),
-                       sigma=HV(
+                       sigma=HC(
                            pm.Exponential,
                            lam=10
                        )
                    ),
-                   sigma=HV(
+                   sigma=HC(
                        pm.Exponential,
                        lam=1000
                    )
                    )
 
-    data = DataContainer(df)
+    data = DataConcatComponent(df)
 
     likelihood = Likelihood(pm.Normal, mu=coeff * data['outdoor_temperature'] + intercept,
-                            sigma=HV(pm.Exponential, lam=1000),
+                            sigma=HC(pm.Exponential, lam=1000),
                             data=data['y'])
     return likelihood
 

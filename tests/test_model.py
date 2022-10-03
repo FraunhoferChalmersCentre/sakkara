@@ -3,7 +3,7 @@ import pandas as pd
 import pymc as pm
 import pytest
 
-from sakkara.model import HierarchicalVariable as HV
+from sakkara.model.single_component import HierarchicalComponent as HC
 from sakkara.relation.groupset import init, GroupSet
 
 
@@ -24,9 +24,9 @@ def groupset() -> GroupSet:
 def test_build_variables(groupset):
     coords = groupset.coords()
 
-    rv_global = HV(pm.Normal, mu=0)
-    rv_building = HV(pm.Normal, group_name='building', mu=rv_global)
-    rv_sensor = HV(pm.Normal, group_name='sensor', mu=rv_building, name='rv')
+    rv_global = HC(pm.Normal, mu=0)
+    rv_building = HC(pm.Normal, group_name='building', mu=rv_global)
+    rv_sensor = HC(pm.Normal, group_name='sensor', mu=rv_building, name='rv')
 
     with pm.Model(coords=coords):
         rv_sensor.build(groupset)
@@ -36,5 +36,5 @@ def test_build_variables(groupset):
 
 
 def test_retrieve_groups():
-    hv = HV(pm.Normal, group_name='room', mu=HV(pm.Normal, group_name='building', mu=HV(pm.Normal)))
+    hv = HC(pm.Normal, group_name='room', mu=HC(pm.Normal, group_name='building', mu=HC(pm.Normal)))
     assert all(c in hv.retrieve_group_names() for c in ['room', 'building', 'global'])

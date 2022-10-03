@@ -190,3 +190,7 @@ def test_mapping(df):
     assert list(map(lambda m: m.index, abdo.map_from(gs['d']))) == np.repeat(np.arange(3), [16, 5, 11]).tolist()
     assert list(map(lambda m: m.index, abdo.map_from(gs['a']))) == np.repeat(np.arange(2), 16).tolist()
     assert list(map(lambda m: m.index, abdo.map_from(gs['o']))) == np.arange(32).tolist()
+
+    ac = CompositeGroupPair(gs['a'], gs['c'])
+    acb = CompositeGroupPair(ac, gs['b'])
+    assert ac.get_representation_groups() == acb.get_representation_groups()
