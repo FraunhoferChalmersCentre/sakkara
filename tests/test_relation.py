@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from sakkara.relation import groupset
-from sakkara.relation.compositegroup import CompositeGroupPair, CompositeAtomicGroup
+from sakkara.relation.node import NodePair
 
 
 @pytest.fixture
@@ -123,74 +123,74 @@ def test_internal_relation(df, graph_dict):
     gs = groupset.init(df)
 
     for k, v in graph_dict.items():
-        cp = CompositeGroupPair(gs[k], gs[k])
+        cp = NodePair(gs[k], gs[k])
         assert cp.a_parent_b() is None
         assert not cp.is_parent_to(gs[k])
         assert not gs[k].is_parent_to(cp)
-        assert gs[k].get_representation_groups() == cp.get_representation_groups()
+        assert gs[k].representation() == cp.representation()
 
         for child in v['children']:
-            cp = CompositeGroupPair(gs[k], gs[child])
+            cp = NodePair(gs[k], gs[child])
             assert cp.a_parent_b()
             assert gs[k].is_parent_to(cp)
             assert not gs[child].is_parent_to(cp)
             assert not cp.is_parent_to(gs[child])
             assert not cp.is_parent_to(gs[k])
         for parent in v['parents']:
-            cp = CompositeGroupPair(gs[parent], gs[k])
+            cp = NodePair(gs[parent], gs[k])
             assert cp.a_parent_b()
             assert not gs[k].is_parent_to(cp)
             assert gs[parent].is_parent_to(cp)
             assert not cp.is_parent_to(gs[parent])
             assert not cp.is_parent_to(gs[k])
         for other in v['neither']:
-            cp = CompositeGroupPair(gs[k], gs[other])
+            cp = NodePair(gs[k], gs[other])
             assert cp.a_parent_b() is None
             assert gs[k].is_parent_to(cp)
             assert gs[other].is_parent_to(cp)
             assert not cp.is_parent_to(gs[k])
             assert not cp.is_parent_to(gs[other])
 
-    assert CompositeGroupPair(CompositeGroupPair(gs['a'], gs['b']), gs['e']).a_parent_b() is None
-    assert not CompositeGroupPair(CompositeGroupPair(gs['b'], gs['e']), gs['a']).a_parent_b()
-    assert CompositeGroupPair(CompositeGroupPair(gs['a'], gs['b']), gs['c']).a_parent_b()
+    assert NodePair(NodePair(gs['a'], gs['b']), gs['e']).a_parent_b() is None
+    assert not NodePair(NodePair(gs['b'], gs['e']), gs['a']).a_parent_b()
+    assert NodePair(NodePair(gs['a'], gs['b']), gs['c']).a_parent_b()
 
 
 def test_mapping(df):
     gs = groupset.init(df)
 
-    aa = CompositeGroupPair(gs['a'], gs['a'])
+    aa = NodePair(gs['a'], gs['a'])
     assert len(aa) == 2
-    assert list(map(str, aa.map_from(gs['a']))) == list(map(str, [0, 1]))
-    aaa = CompositeGroupPair(aa, gs['a'])
+    assert aa.map_from(gs['a']) == [0, 1]
+    aaa = NodePair(aa, gs['a'])
     assert len(aaa) == 2
-    assert list(map(lambda m: m.index, aaa.map_from(gs['a']))) == [0, 1]
-    assert list(map(lambda m: m.index, aaa.map_from(aa))) == [0, 1]
+    assert aaa.map_from(gs['a']) == [0, 1]
+    assert aaa.map_from(aa) == [0, 1]
 
-    ab = CompositeGroupPair(gs['a'], gs['b'])
+    ab = NodePair(gs['a'], gs['b'])
     assert len(ab) == 4
-    assert list(map(lambda m: m.index, ab.map_from(gs['a']))) == [0, 0, 1, 1]
-    assert list(map(lambda m: m.index, ab.map_from(gs['b']))) == [0, 1, 2, 3]
+    assert ab.map_from(gs['a']) == [0, 0, 1, 1]
+    assert ab.map_from(gs['b']) == [0, 1, 2, 3]
 
-    bd = CompositeGroupPair(gs['b'], gs['d'])
+    bd = NodePair(gs['b'], gs['d'])
     assert len(bd) == 6
-    assert list(map(lambda m: m.index, bd.map_from(gs['b']))) == [0, 1, 2, 2, 3, 3]
-    assert list(map(lambda m: m.index, bd.map_from(gs['d']))) == [0, 0, 1, 2, 1, 2]
-    assert list(map(lambda m: m.index, bd.map_from(gs['a']))) == [0, 0, 1, 1, 1, 1]
+    assert bd.map_from(gs['b']) == [0, 1, 2, 2, 3, 3]
+    assert bd.map_from(gs['d']) == [0, 0, 1, 2, 1, 2]
+    assert bd.map_from(gs['a']) == [0, 0, 1, 1, 1, 1]
 
-    abd = CompositeGroupPair(ab, bd)
+    abd = NodePair(ab, bd)
     assert len(abd) == 6
-    assert list(map(lambda m: m.index, abd.map_from(gs['b']))) == [0, 1, 2, 2, 3, 3]
-    assert list(map(lambda m: m.index, abd.map_from(gs['d']))) == [0, 0, 1, 2, 1, 2]
-    assert list(map(lambda m: m.index, abd.map_from(gs['a']))) == [0, 0, 1, 1, 1, 1]
+    assert abd.map_from(gs['b']) == [0, 1, 2, 2, 3, 3]
+    assert abd.map_from(gs['d']) == [0, 0, 1, 2, 1, 2]
+    assert abd.map_from(gs['a']) == [0, 0, 1, 1, 1, 1]
 
-    abdo = CompositeGroupPair(abd, gs['o'])
+    abdo = NodePair(abd, gs['o'])
     assert len(abdo) == 32
-    assert list(map(lambda m: m.index, abdo.map_from(gs['b']))) == np.repeat(np.arange(4), 8).tolist()
-    assert list(map(lambda m: m.index, abdo.map_from(gs['d']))) == np.repeat(np.arange(3), [16, 5, 11]).tolist()
-    assert list(map(lambda m: m.index, abdo.map_from(gs['a']))) == np.repeat(np.arange(2), 16).tolist()
-    assert list(map(lambda m: m.index, abdo.map_from(gs['o']))) == np.arange(32).tolist()
+    assert abdo.map_from(gs['b']) == np.repeat(np.arange(4), 8).tolist()
+    assert abdo.map_from(gs['d']) == np.repeat(np.arange(3), [16, 5, 11]).tolist()
+    assert abdo.map_from(gs['a']) == np.repeat(np.arange(2), 16).tolist()
+    assert abdo.map_from(gs['o']) == np.arange(32).tolist()
 
-    ac = CompositeGroupPair(gs['a'], gs['c'])
-    acb = CompositeGroupPair(ac, gs['b'])
-    assert ac.get_representation_groups() == acb.get_representation_groups()
+    ac = NodePair(gs['a'], gs['c'])
+    acb = NodePair(ac, gs['b'])
+    assert ac.representation() == acb.representation()

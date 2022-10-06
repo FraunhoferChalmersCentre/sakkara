@@ -1,6 +1,6 @@
 ![Sakkara logo](logo.png)
 
-Welcome to Sakkara, a framework for speeding up Bayesian hierarchical modelling using PyMC.
+Welcome to Sakkara, a research framework for speeding up Bayesian hierarchical and graphical modelling using PyMC.
 
 ## Installation
 
@@ -11,7 +11,8 @@ Welcome to Sakkara, a framework for speeding up Bayesian hierarchical modelling 
     import pandas as pd
     import numpy as np
     import pymc as pm
-    from sakkara.model import HierarchicalVariable as HV, VariableContainer, DataContainer, HierarchicalModel, Likelihood
+    from sakkara.model.components import Distribution, Deterministic, Stacked
+    from sakkara.model.utils import Likelihood, Data, build
     
     x = np.random.randn(10)
     group = np.repeat([0, 1], 5)
@@ -19,16 +20,15 @@ Welcome to Sakkara, a framework for speeding up Bayesian hierarchical modelling 
     y = x * k[group] + np.random.randn() * 1e-3
     df = pd.DataFrame({'x': x, 'y': y, 'group': group})
     
-    data = DataContainer(df)
-    coeff = HV(pm.Normal, name='x', group='group', mu=HV(pm.Normal), sigma=HV(pm.Exponential, lam=1))
-    intercept = HV(pm.Normal, name='intercept')
+    data = Data(df)
+    coeff = Distribution(pm.Normal, name='x', group_name='group', mu=Distribution(pm.Normal), sigma=Distribution(pm.Exponential, lam=1))
+    intercept = Distribution(pm.Normal, name='intercept')
     
-    estimate = Likelihood(pm.Normal, name='est', mu=coeff * data['x'] + intercept, sigma=HV(pm.Exponential, lam=1),
+    likelihood = Likelihood(pm.Normal, name='est', mu=coeff * data['x'] + intercept, sigma=Distribution(pm.Exponential, lam=1),
                           data=data['y'])
     
-    model = HierarchicalModel(df, likelihood=estimate)
     
-    with model.build():
+    with build(df, likelihood):
         idata = pm.sample()
 
 ## More examples

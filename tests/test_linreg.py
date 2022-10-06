@@ -5,8 +5,8 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model.utils import build, Likelihood, DataConcatComponent
-from sakkara.model.single_component import HierarchicalComponent as HC
+from sakkara.model.utils import build, Likelihood, Data
+from sakkara.model.components import Distribution
 
 
 @pytest.fixture
@@ -44,43 +44,57 @@ def df():
 
 @pytest.fixture
 def likelihood(df):
-    coeff = HC(pm.Normal,
-               name='outdoor_temperature',
-               group_name='building',
-               mu=HC(
-                   pm.Normal
-               ),
-               sigma=HC(
-                   pm.Exponential,
-                   lam=1000
-               )
-               )
-    intercept = HC(pm.Normal,
-                   name='heating_power',
-                   group_name='room',
-                   mu=HC(
-                       pm.Normal,
-                       group_name='building',
-                       mu=HC(
-                           pm.Normal
-                       ),
-                       sigma=HC(
-                           pm.Exponential,
-                           lam=10
-                       )
-                   ),
-                   sigma=HC(
-                       pm.Exponential,
-                       lam=1000
-                   )
-                   )
+    coeff = Distribution(pm.Normal,
+                         name='outdoor_temperature',
+                         group_name='building',
+                         mu=Distribution(
+                             pm.Normal
+                         ),
+                         sigma=Distribution(
+                             pm.Exponential,
+                             lam=1000
+                         )
+                         )
+    intercept = Distribution(pm.Normal,
+                             name='heating_power',
+                             group_name='room',
+                             mu=Distribution(
+                                 pm.Normal,
+                                 group_name='building',
+                                 mu=Distribution(pm.Normal),
+                                 sigma=Distribution(pm.Exponential, lam=10)
+                             ),
+                             sigma=Distribution(pm.Exponential, lam=1000)
+                             )
 
-    data = DataConcatComponent(df)
+    data = Data(df)
 
     likelihood = Likelihood(pm.Normal, mu=coeff * data['outdoor_temperature'] + intercept,
-                            sigma=HC(pm.Exponential, lam=1000),
+                            sigma=Distribution(pm.Exponential, lam=1000),
                             data=data['y'])
     return likelihood
+
+
+def test_minimal_linreg():
+    x = np.random.randn(10)
+    group = np.repeat([0, 1], 5)
+    k = np.array([1, -1])
+    y = x * k[group] + np.random.randn() * 1e-3
+    df = pd.DataFrame({'x': x, 'y': y, 'group': group})
+
+    data = Data(df)
+    coeff = Distribution(pm.Normal, name='x', group_name='group', mu=Distribution(pm.Normal),
+                         sigma=Distribution(pm.Exponential, lam=1))
+    intercept = Distribution(pm.Normal, name='intercept')
+
+    likelihood = Likelihood(pm.Normal, name='est', mu=coeff * data['x'] + intercept,
+                            sigma=Distribution(pm.Exponential, lam=1),
+                            data=data['y'])
+
+    built_model = build(df, likelihood)
+    with built_model:
+        idata = pm.fit(1, 'advi')
+    assert isinstance(built_model, pm.Model)
 
 
 def test_sampling(likelihood, df):

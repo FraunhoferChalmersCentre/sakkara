@@ -5,11 +5,14 @@ from typing import Callable, Any, Set
 import aesara.tensor as at
 
 from sakkara.model.base import ModelComponent
-from sakkara.relation.compositegroup import CompositeGroupPair
+from sakkara.relation.group import GroupPair
 from sakkara.relation.groupset import GroupSet
 
 
 class CompositeComponent(ModelComponent, ABC):
+    """
+    Class for intermediate states from mathematical operations between components
+    """
     def __init__(self, a: ModelComponent, b: ModelComponent, op: Callable[[Any, Any], Any], name: str = None):
         super().__init__(name)
         self.a = a
@@ -26,10 +29,11 @@ class CompositeComponent(ModelComponent, ABC):
                 c.build(groupset)
 
     def build_group(self, groupset: GroupSet) -> None:
-        self.group = CompositeGroupPair(self.a.group, self.b.group)
+        self.group = GroupPair(self.a.group, self.b.group)
 
     def get_mapped_variable(self, component: ModelComponent) -> at.TensorVariable:
-        if self.group != component.group:
+        if self.group.representation() != component.group.representation() and 1 < len(
+                component.group):
             mapping = list(map(lambda m: m.index, self.group.map_from(component.group)))
             return component.variable[mapping]
         else:
@@ -60,6 +64,9 @@ class CompositeComponent(ModelComponent, ABC):
 
 
 class OperationBaseComponent(ModelComponent, ABC):
+    """
+    Base class for components
+    """
     def __add__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.add)
 

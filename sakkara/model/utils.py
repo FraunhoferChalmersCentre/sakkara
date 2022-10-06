@@ -6,30 +6,20 @@ import pandas as pd
 import pymc as pm
 
 from sakkara.model.base import ModelComponent
-from sakkara.model.multi_component import ConcatComponent
-from sakkara.model.single_component import HierarchicalComponent
+from sakkara.model.components import HierarchicalComponent, Concat, Deterministic, Distribution, Stacked
 from sakkara.relation.groupset import GroupSet, init
 
 
-class DataConcatComponent(ConcatComponent, ABC):
-    def __init__(self, df: pd.DataFrame):
-        keys = list(df.columns)
-        components = [
-            HierarchicalComponent(pm.Data, value=df.loc[:, k], name=f'{k}_data', group_name='obs', mutable=False) for k
-            in keys]
-        super().__init__(components, keys)
+class Data(Concat, ABC):
+    def __init__(self, df: pd.DataFrame, group_name='obs'):
+        super().__init__({k: Deterministic(value=df[k], group_name=group_name) for k in df})
 
 
-class Likelihood(HierarchicalComponent):
-    def __init__(self, distribution: Callable, data: ModelComponent, name=None, **kwargs):
-        super().__init__(distribution, **kwargs)
-        self.data = data
-        self.group_name = 'obs'
+class Likelihood(Distribution):
+    def __init__(self, generator: Callable, data: ModelComponent, name=None, **kwargs):
+        super().__init__(generator, group_name='obs', name=name, **kwargs)
+        self.components['observed'] = data
         self.name = 'likelihood' if name is None else name
-
-    def prebuild(self, groupset: GroupSet) -> None:
-        self.params['observed'] = self.data
-        super(Likelihood, self).prebuild(groupset)
 
 
 def build(df: pd.DataFrame, likelihood: Likelihood):

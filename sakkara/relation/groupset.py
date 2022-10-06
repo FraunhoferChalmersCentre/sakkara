@@ -4,16 +4,15 @@ from typing import Dict, List, Set
 import numpy as np
 import pandas as pd
 
-from sakkara.relation.compositegroup import CompositeAtomicGroup, CompositeGroup
-from sakkara.relation.ordered import OrderedAtomicGroup, OrderedGroup
+from sakkara.relation.node import Node, AtomicNode
 
 
 @dataclass(frozen=True)
 class GroupSet:
     """
-    Set of composite groups
+    Set of groups
     """
-    groups: Dict[str, CompositeGroup]
+    groups: Dict[str, Node]
 
     def __getitem__(self, item):
         return self.groups[item]
@@ -22,8 +21,8 @@ class GroupSet:
         coords_dict = {}
         for k, v in self.groups.items():
             names = np.empty(len(v), dtype=object)
-            for m in v.get_members():
-                names[m.index] = str(m)
+            for i, m in enumerate(v.get_members()):
+                names[i] = str(m)
             coords_dict[k] = names
         return coords_dict
 
@@ -49,8 +48,8 @@ def get_parent_df(df) -> pd.DataFrame:
     return counts_df.loc[:, df.columns]
 
 
-def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[CompositeGroup],
-                        member_parents: Dict[str, Set[OrderedGroup]]) -> None:
+def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[Node],
+                        member_parents: Dict[str, Set[Node]]) -> None:
     """
     Add member parents of a composite group
     Parameters
@@ -70,7 +69,7 @@ def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[Composit
 
 
 def init_composite(name: str, parent_names: List[str], df: pd.DataFrame,
-                   groups: Dict[str, CompositeAtomicGroup]) -> CompositeAtomicGroup:
+                   groups: Dict[str, AtomicNode]) -> AtomicNode:
     """
     Init a single composite group.
 
@@ -93,8 +92,8 @@ def init_composite(name: str, parent_names: List[str], df: pd.DataFrame,
     member_parents = {str(k): set() for k in member_names}
     fill_member_parents(str(name), selection_df, parents, member_parents)
 
-    members = list(map(lambda x: OrderedAtomicGroup(x[0], x[1], *member_parents[x[1]]), enumerate(member_names)))
-    return CompositeAtomicGroup(str(name), members, parents)
+    members = list(map(lambda x: AtomicNode(x, list(), member_parents[x].union(parents)), member_names))
+    return AtomicNode(str(name), members, parents)
 
 
 def init(df: pd.DataFrame) -> GroupSet:
