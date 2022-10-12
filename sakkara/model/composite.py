@@ -5,7 +5,7 @@ from typing import Callable, Any, Set
 import aesara.tensor as at
 
 from sakkara.model.base import ModelComponent
-from sakkara.relation.group import GroupPair
+from sakkara.relation.node import NodePair
 from sakkara.relation.groupset import GroupSet
 
 
@@ -13,6 +13,7 @@ class CompositeComponent(ModelComponent, ABC):
     """
     Class for intermediate states from mathematical operations between components
     """
+
     def __init__(self, a: ModelComponent, b: ModelComponent, op: Callable[[Any, Any], Any], name: str = None):
         super().__init__(name)
         self.a = a
@@ -28,24 +29,25 @@ class CompositeComponent(ModelComponent, ABC):
             if c.variable is None:
                 c.build(groupset)
 
-    def build_group(self, groupset: GroupSet) -> None:
-        self.group = GroupPair(self.a.group, self.b.group)
+    def build_node(self, groupset: GroupSet) -> None:
+        self.node = NodePair(self.a.node, self.b.node).reduce_pair()
 
     def get_mapped_variable(self, component: ModelComponent) -> at.TensorVariable:
-        if self.group.representation() != component.group.representation() and 1 < len(
-                component.group):
-            mapping = list(map(lambda m: m.index, self.group.map_from(component.group)))
-            return component.variable[mapping]
-        else:
+        if len(component.node) == 1:
             return component.variable
+        mapping = self.node.map_to(component.node)
+        if mapping is None:
+            return component.variable
+        else:
+            return component.variable[mapping]
 
     def build_variable(self) -> None:
         a_var = self.get_mapped_variable(self.a)
         b_var = self.get_mapped_variable(self.b)
         self.variable = self.op(a_var, b_var)
 
-    def retrieve_group_names(self) -> Set[str]:
-        return self.a.retrieve_group_names().union(self.b.retrieve_group_names())
+    def retrieve_columns(self) -> Set[str]:
+        return self.a.retrieve_columns().union(self.b.retrieve_columns())
 
     def __add__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.add)
@@ -67,6 +69,10 @@ class OperationBaseComponent(ModelComponent, ABC):
     """
     Base class for components
     """
+    def __init__(self, name: str, column: str):
+        super().__init__(name)
+        self.column = column
+
     def __add__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.add)
 

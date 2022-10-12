@@ -1,7 +1,10 @@
 import abc
 from abc import ABC
+from functools import cache
 from typing import Set, Optional, List
 
+import numpy as np
+import numpy.typing as npt
 
 class Node:
     """
@@ -16,7 +19,7 @@ class Node:
         Parameters
         ----------
         other : Node
-            Other node to test if the node is parent to
+            Other node to test
 
         Returns
         -------
@@ -24,9 +27,6 @@ class Node:
 
         """
         raise NotImplementedError
-
-    def is_member_of(self, other: 'Node') -> bool:
-        return self in other.get_members()
 
     @abc.abstractmethod
     def get_members(self) -> List['Node']:
@@ -45,6 +45,10 @@ class Node:
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_children(self) -> Set['Node']:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def representation(self) -> Set['Node']:
         """
             Returns the set of nodes that represents the information level of the group
@@ -52,7 +56,7 @@ class Node:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def map_from(self, other: 'Node') -> List[int]:
+    def map_to(self, other: 'Node') -> Optional[npt.NDArray[int]]:
         """
         Get a mapping from other group to this group. If the other group is unrelated to this group, the mapping will
         be from the other group to a pair group.
@@ -65,8 +69,8 @@ class Node:
         -------
         List of the member nodes of other, in an order to be mapped to the correct member of this group (or a pair group)
         """
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def __str__(self):
         raise NotImplementedError
 
@@ -86,36 +90,8 @@ class NodePair(Node, ABC):
         """
         self.a = a
         self.b = b
-        self.members = self.create_members()
 
-    def __len__(self):
-        return len(self.members)
-
-    def a_parent_b(self) -> Optional[bool]:
-        """
-        Get the relation in the pair
-        :return: True if self.a is parent to self.b, False if self.b is parent to self.a or None if they are unrelated
-        """
-        if self.a.is_parent_to(self.b):
-            return True
-        elif self.b.is_parent_to(self.a):
-            return False
-        else:
-            return None
-
-    def is_parent_to(self, other: Node) -> bool:
-        return self.a.is_parent_to(other) and self.b.is_parent_to(other)
-
-    def get_parents(self) -> Set[Node]:
-        representation_groups = self.representation()
-        parents = set().union(*map(lambda g: g.get_parents(), self.representation()))
-
-        if len(representation_groups) > 1:
-            parents = parents.union(representation_groups)
-
-        return parents
-
-    def parent_child_init(self, a_parent: bool) -> List[Node]:
+    def parent_child_member_pairs(self) -> List['NodePair']:
         """
         Member initialization if a and b has a parent-child relation
         Parameters
@@ -127,18 +103,14 @@ class NodePair(Node, ABC):
         List of members, size same as member of child group
         """
         members = list()
-        parent = self.a if a_parent else self.b
-        child = self.b if a_parent else self.a
+        parent, child = (self.a, self.b) if self.a.is_parent_to(self.b) else (self.b, self.a)
         for i, child_member in enumerate(child.get_members()):
             # Find the member of parent group that is parent to this child member
             parent_member = next(filter(lambda p: p.is_parent_to(child_member), parent.get_members()))
-            if a_parent:
-                members.append(NodePair(parent_member, child_member))
-            else:
-                members.append(NodePair(child_member, parent_member))
+            members.append(NodePair(parent_member, child_member))
         return members
 
-    def same_level_init(self) -> List[Node]:
+    def same_level_member_pairs(self) -> List['NodePair']:
         """
         Member initialization when a and b are not related. Creates a pair member for each pair of (member a, member b)
         where both member_a and member_b must be linked to the same parent member of a common parent of groups a and b.
@@ -149,17 +121,14 @@ class NodePair(Node, ABC):
         List of members, size dependent on relations to common parent
         """
         members = list()
-        common_parents = self.a.get_parents().intersection(self.b.get_parents())
         for a_member in self.a.get_members():
             for b_member in self.b.get_members():
-                # Create pair member if a and b members have the same parent members of parent group
-                common_parent_members = a_member.get_parents().intersection(b_member.get_parents())
-                common_parent_members = list(filter(lambda m: any(map(lambda p: m in p.get_members(), common_parents)), common_parent_members))
-                if len(common_parent_members) == len(common_parents):
+                if 0 < len(a_member.get_children().intersection(b_member.get_children())):
                     members.append(NodePair(a_member, b_member))
         return members
 
-    def create_members(self) -> List[Node]:
+    @cache
+    def get_members(self) -> List['NodePair']:
         """
         Init the member list, varying strategies depending on relation of a and b.
         Returns
@@ -167,56 +136,83 @@ class NodePair(Node, ABC):
         List of OrderedGroupPair, where a element of each OrderedGroupPair object corresponds to a member of the a group
         and b corresponds to a member of the b group.
         """
+        if len(self.a.get_members()) == 0 and len(self.b.get_members()) == 0:
+            return list()
+
         # Check if a and b has the same representation
         if self.a.representation() == self.b.representation():
             # a and b have the tha same representation, create a pair member for each member of a mapped to the same
             # element of b
-            return list(
-                map(lambda m: NodePair(m[0], m[1]), zip(self.a.get_members(), self.b.get_members())))
+            return list(map(lambda m: NodePair(m[0], m[1]), zip(self.a.get_members(), self.b.get_members())))
 
-        # Check relation between a and b
-        a_parent = self.a_parent_b()
-        if a_parent is not None:
+        # Check parent-child relationship
+        if self.a.is_parent_to(self.b) or self.b.is_parent_to(self.a):
             # a and b have a parent-child relation
-            return self.parent_child_init(a_parent)
-        else:
-            # a and b are unrelated
-            return self.same_level_init()
+            return self.parent_child_member_pairs()
 
+        # a and b are unrelated
+        return self.same_level_member_pairs()
+
+    @cache
+    def is_parent_to(self, other: Node) -> bool:
+        return self.a.is_parent_to(other) and self.b.is_parent_to(other)
+
+    @cache
+    def get_parents(self) -> Set[Node]:
+        parents = set().union(*map(lambda g: g.get_parents(), self.representation()))
+
+        if len(self.representation()) > 1:
+            parents = parents.union(self.representation())
+
+        return parents
+
+    @cache
+    def get_children(self) -> Set[Node]:
+        return set().intersection(*map(lambda g: g.get_children(), self.representation()))
+
+    @cache
     def representation(self) -> Set[Node]:
-        a_parent = self.a_parent_b()
-        if a_parent is not None:
-            child = self.b if a_parent else self.a
-            return child.representation()
-        else:
-            return self.a.representation().union(self.b.representation())
+        if self.b.is_parent_to(self.a):
+            return self.a.representation()
 
-    def get_members(self) -> List['Node']:
-        return self.members
+        if self.a.is_parent_to(self.b):
+            return self.b.representation()
 
+        return self.a.representation().union(self.b.representation())
+
+    @cache
     def reduce_pair(self) -> Node:
-        self_repr = self.representation()
-        if self_repr == self.a.representation():
+        if self.representation() == self.a.representation():
             return self.a
-        if self_repr == self.b.representation():
+        if self.representation() == self.b.representation():
             return self.b
         return self
 
-    def map_from(self, other: 'Node') -> List[int]:
-        if other == self.a:
-            return list(map(lambda m: other.get_members().index(m.a), self.members))
-        elif other == self.b:
-            return list(map(lambda m: other.get_members().index(m.b), self.members))
-        else:
-            return NodePair(self, other).map_from(other)
-
+    @cache
     def __str__(self) -> str:
         return '_'.join(map(str, self.representation()))
+
+    @cache
+    def map_to(self, other: Node) -> Optional[npt.NDArray[int]]:
+        if other.representation() == self.representation():
+            return np.arange(len(self))
+
+        if not other.is_parent_to(self):
+            return NodePair(self, other).map_to(other)
+
+        if self.is_parent_to(other):
+            raise ValueError('Mapping from parent to children not applicable')
+
+        return np.array([
+            next(
+                j for j, other_member in enumerate(other.get_members()) if other_member.is_parent_to(member)
+            ) for member in self.get_members()
+        ])
 
 
 class AtomicNode(Node, ABC):
     """
-        Class for a single instance group.
+        Class for a single instance node.
     """
 
     def __init__(self, name: str, members: List['AtomicNode'], parents: Set['AtomicNode']):
@@ -230,6 +226,7 @@ class AtomicNode(Node, ABC):
         self.name = name
         self.members = members
         self.parents = set(parents)
+        self.children = set()
 
     def __str__(self):
         return self.name
@@ -237,14 +234,25 @@ class AtomicNode(Node, ABC):
     def get_members(self) -> List[Node]:
         return self.members
 
+    def add_child(self, child: 'AtomicNode'):
+        self.children.add(child)
+
+    def get_children(self) -> Set[Node]:
+        return self.children
+
     def is_parent_to(self, other: Node) -> bool:
         return self in other.get_parents()
 
     def get_parents(self) -> Set[Node]:
         return self.parents
 
-    def representation(self) -> Set['Node']:
+    def representation(self) -> Set[Node]:
         return {self}
 
-    def map_from(self, other: Node) -> List[int]:
-        return NodePair(self, other).map_from(other)
+    def map_to(self, other: Node) -> Optional[npt.NDArray[int]]:
+        return NodePair(self, other).map_to(other)
+
+
+class CellNode(AtomicNode):
+    def __init__(self, name: str, parents: Set[AtomicNode]):
+        super().__init__(name, list(), parents)

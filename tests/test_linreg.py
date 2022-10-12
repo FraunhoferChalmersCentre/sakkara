@@ -5,7 +5,7 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model.utils import build, Likelihood, Data
+from sakkara.model.utils import build, Likelihood, data_components
 from sakkara.model.components import Distribution
 
 
@@ -46,7 +46,7 @@ def df():
 def likelihood(df):
     coeff = Distribution(pm.Normal,
                          name='outdoor_temperature',
-                         group_name='building',
+                         column='building',
                          mu=Distribution(
                              pm.Normal
                          ),
@@ -57,17 +57,17 @@ def likelihood(df):
                          )
     intercept = Distribution(pm.Normal,
                              name='heating_power',
-                             group_name='room',
+                             column='room',
                              mu=Distribution(
                                  pm.Normal,
-                                 group_name='building',
+                                 column='building',
                                  mu=Distribution(pm.Normal),
                                  sigma=Distribution(pm.Exponential, lam=10)
                              ),
                              sigma=Distribution(pm.Exponential, lam=1000)
                              )
 
-    data = Data(df)
+    data = data_components(df)
 
     likelihood = Likelihood(pm.Normal, mu=coeff * data['outdoor_temperature'] + intercept,
                             sigma=Distribution(pm.Exponential, lam=1000),
@@ -82,8 +82,8 @@ def test_minimal_linreg():
     y = x * k[group] + np.random.randn() * 1e-3
     df = pd.DataFrame({'x': x, 'y': y, 'group': group})
 
-    data = Data(df)
-    coeff = Distribution(pm.Normal, name='x', group_name='group', mu=Distribution(pm.Normal),
+    data = data_components(df)
+    coeff = Distribution(pm.Normal, name='x', column='group', mu=Distribution(pm.Normal),
                          sigma=Distribution(pm.Exponential, lam=1))
     intercept = Distribution(pm.Normal, name='intercept')
 

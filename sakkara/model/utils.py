@@ -1,35 +1,33 @@
-from abc import ABC
-from typing import Callable
+from typing import Callable, Dict
 
 import numpy as np
 import pandas as pd
 import pymc as pm
 
 from sakkara.model.base import ModelComponent
-from sakkara.model.components import HierarchicalComponent, Concat, Deterministic, Distribution, Stacked
-from sakkara.relation.groupset import GroupSet, init
-
-
-class Data(Concat, ABC):
-    def __init__(self, df: pd.DataFrame, group_name='obs'):
-        super().__init__({k: Deterministic(value=df[k], group_name=group_name) for k in df})
+from sakkara.model.components import Distribution, Deterministic
+from sakkara.relation.groupset import init
 
 
 class Likelihood(Distribution):
     def __init__(self, generator: Callable, data: ModelComponent, name=None, **kwargs):
-        super().__init__(generator, group_name='obs', name=name, **kwargs)
+        super().__init__(generator, column='obs', name=name, **kwargs)
         self.components['observed'] = data
         self.name = 'likelihood' if name is None else name
+
+
+def data_components(df: pd.DataFrame) -> Dict[str, ModelComponent]:
+    return {k: Distribution(pm.Data, 'data_' + k, value=df.loc[:, k].values, column='obs', mutable=False) for k in df}
 
 
 def build(df: pd.DataFrame, likelihood: Likelihood):
     likelihood.clear()
 
     tmp_df = df.copy()
-    tmp_df['global'] = 'global'
-    tmp_df['obs'] = np.arange(len(df))
+    tmp_df.loc[:, 'global'] = 'global'
+    tmp_df.loc[:, 'obs'] = np.arange(len(df))
 
-    groupset = init(tmp_df.loc[:, list(likelihood.retrieve_group_names())])
+    groupset = init(tmp_df.loc[:, list(likelihood.retrieve_columns())])
 
     with pm.Model(coords=groupset.coords()) as model:
         likelihood.build(groupset)

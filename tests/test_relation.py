@@ -124,36 +124,28 @@ def test_internal_relation(df, graph_dict):
 
     for k, v in graph_dict.items():
         cp = NodePair(gs[k], gs[k])
-        assert cp.a_parent_b() is None
         assert not cp.is_parent_to(gs[k])
         assert not gs[k].is_parent_to(cp)
         assert gs[k].representation() == cp.representation()
 
         for child in v['children']:
             cp = NodePair(gs[k], gs[child])
-            assert cp.a_parent_b()
             assert gs[k].is_parent_to(cp)
             assert not gs[child].is_parent_to(cp)
             assert not cp.is_parent_to(gs[child])
             assert not cp.is_parent_to(gs[k])
         for parent in v['parents']:
             cp = NodePair(gs[parent], gs[k])
-            assert cp.a_parent_b()
             assert not gs[k].is_parent_to(cp)
             assert gs[parent].is_parent_to(cp)
             assert not cp.is_parent_to(gs[parent])
             assert not cp.is_parent_to(gs[k])
         for other in v['neither']:
             cp = NodePair(gs[k], gs[other])
-            assert cp.a_parent_b() is None
             assert gs[k].is_parent_to(cp)
             assert gs[other].is_parent_to(cp)
             assert not cp.is_parent_to(gs[k])
             assert not cp.is_parent_to(gs[other])
-
-    assert NodePair(NodePair(gs['a'], gs['b']), gs['e']).a_parent_b() is None
-    assert not NodePair(NodePair(gs['b'], gs['e']), gs['a']).a_parent_b()
-    assert NodePair(NodePair(gs['a'], gs['b']), gs['c']).a_parent_b()
 
 
 def test_mapping(df):
@@ -161,35 +153,35 @@ def test_mapping(df):
 
     aa = NodePair(gs['a'], gs['a'])
     assert len(aa) == 2
-    assert aa.map_from(gs['a']) == [0, 1]
+    assert aa.map_to(gs['a']).tolist() == [0, 1]
     aaa = NodePair(aa, gs['a'])
     assert len(aaa) == 2
-    assert aaa.map_from(gs['a']) == [0, 1]
-    assert aaa.map_from(aa) == [0, 1]
+    assert aaa.map_to(gs['a']).tolist() == [0, 1]
+    assert aaa.map_to(aa).tolist() == [0, 1]
 
     ab = NodePair(gs['a'], gs['b'])
     assert len(ab) == 4
-    assert ab.map_from(gs['a']) == [0, 0, 1, 1]
-    assert ab.map_from(gs['b']) == [0, 1, 2, 3]
+    assert ab.map_to(gs['a']).tolist() == [0, 0, 1, 1]
+    assert ab.map_to(gs['b']).tolist() == [0, 1, 2, 3]
 
     bd = NodePair(gs['b'], gs['d'])
-    assert len(bd) == 6
-    assert bd.map_from(gs['b']) == [0, 1, 2, 2, 3, 3]
-    assert bd.map_from(gs['d']) == [0, 0, 1, 2, 1, 2]
-    assert bd.map_from(gs['a']) == [0, 0, 1, 1, 1, 1]
+    assert len(bd) == 5
+    assert bd.map_to(gs['b']).tolist() == [0, 1, 2, 2, 3]
+    assert bd.map_to(gs['d']).tolist() == [0, 0, 1, 2, 2]
+    assert bd.map_to(gs['a']).tolist() == [0, 0, 1, 1, 1]
 
     abd = NodePair(ab, bd)
-    assert len(abd) == 6
-    assert abd.map_from(gs['b']) == [0, 1, 2, 2, 3, 3]
-    assert abd.map_from(gs['d']) == [0, 0, 1, 2, 1, 2]
-    assert abd.map_from(gs['a']) == [0, 0, 1, 1, 1, 1]
+    assert len(abd) == 5
+    assert abd.map_to(gs['b']).tolist() == [0, 1, 2, 2, 3]
+    assert abd.map_to(gs['d']).tolist() == [0, 0, 1, 2, 2]
+    assert abd.map_to(gs['a']).tolist() == [0, 0, 1, 1, 1]
 
     abdo = NodePair(abd, gs['o'])
     assert len(abdo) == 32
-    assert abdo.map_from(gs['b']) == np.repeat(np.arange(4), 8).tolist()
-    assert abdo.map_from(gs['d']) == np.repeat(np.arange(3), [16, 5, 11]).tolist()
-    assert abdo.map_from(gs['a']) == np.repeat(np.arange(2), 16).tolist()
-    assert abdo.map_from(gs['o']) == np.arange(32).tolist()
+    assert abdo.map_to(gs['b']).tolist() == np.repeat(np.arange(4), 8).tolist()
+    assert abdo.map_to(gs['d']).tolist() == np.repeat(np.arange(3), [16, 5, 11]).tolist()
+    assert abdo.map_to(gs['a']).tolist() == np.repeat(np.arange(2), 16).tolist()
+    assert abdo.map_to(gs['o']).tolist() == np.arange(32).tolist()
 
     ac = NodePair(gs['a'], gs['c'])
     acb = NodePair(ac, gs['b'])

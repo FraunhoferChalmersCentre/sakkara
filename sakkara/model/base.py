@@ -13,32 +13,32 @@ from sakkara.relation.groupset import GroupSet
 
 class ModelComponent:
     """
-    Base class for all model components (variables, data, parameters)
-    """
-    def __init__(self, name: str = None, group_name: str = None):
+        Abstract class for all model components (variables, data, parameters)
         """
 
-        Parameters
-        ----------
-        name: Name of the component to used for naming in PyMC variables.
-        group_name: Name of group for component to be found in groupset when building the model.
-        """
-        self.group_name = group_name
+    def __init__(self, name: str):
         self.name = name
+        self.node = None
         self.variable = None
-        self.group = None
-
-    @abc.abstractmethod
-    def retrieve_group_names(self) -> Set[str]:
-        """
-        Retrieve group names for this and underlying components
-        """
-        raise NotImplementedError
 
     @abc.abstractmethod
     def clear(self) -> None:
         """
         Clear variable and group for this and underlying components
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def build_variable(self) -> None:
+        """
+        Build the variable, performed after prebuild and build_group.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def retrieve_columns(self) -> Set[str]:
+        """
+        Retrieve group names for this and underlying components
         """
         raise NotImplementedError
 
@@ -55,7 +55,7 @@ class ModelComponent:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def build_group(self, groupset: GroupSet) -> None:
+    def build_node(self, groupset: GroupSet) -> None:
         """
         Build the group of this component, performed after prebuild.
         Parameters
@@ -64,16 +64,9 @@ class ModelComponent:
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def build_variable(self) -> None:
-        """
-        Build the variable, performed after prebuild and build_group.
-        """
-        raise NotImplementedError
-
     def build(self, groupset: GroupSet) -> None:
         self.prebuild(groupset)
-        self.build_group(groupset)
+        self.build_node(groupset)
         self.build_variable()
 
     @abc.abstractmethod
