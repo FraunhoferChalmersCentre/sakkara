@@ -3,34 +3,30 @@ import pandas as pd
 import pymc as pm
 import pytest
 
-from sakkara.model import HierarchicalVariable as HV
-from sakkara.relation import init_groupset
+from sakkara.model.components import Distribution
+from sakkara.relation.groupset import init, GroupSet
 
 
 @pytest.fixture
-def groupset():
+def groupset() -> GroupSet:
     df = pd.DataFrame(
         {
+            'global': 'global',
             'building': np.repeat(list('ab'), 10),
             'sensor': np.repeat(list('stuv'), 5),
             'time': np.tile(np.arange(5), 4),
-            'random_values': np.random.randn(20)
+            'obs': np.arange(20)
         })
 
-    bidx, _ = df['building'].factorize()
-    sidx, _ = df['sensor'].factorize()
-
-    df['value'] = bidx * 100 + sidx * 10 + np.random.randn(20)
-
-    return init_groupset(df, {'building', 'sensor'}, {'random_values'})
+    return init(df)
 
 
 def test_build_variables(groupset):
     coords = groupset.coords()
 
-    rv_global = HV(pm.Normal, mu=0)
-    rv_building = HV(pm.Normal, group='building', mu=rv_global)
-    rv_sensor = HV(pm.Normal, group='sensor', mu=rv_building, name='rv')
+    rv_global = Distribution(pm.Normal, mu=0)
+    rv_building = Distribution(pm.Normal, column='building', mu=rv_global)
+    rv_sensor = Distribution(pm.Normal, column='sensor', mu=rv_building, name='rv')
 
     with pm.Model(coords=coords):
         rv_sensor.build(groupset)
@@ -40,6 +36,5 @@ def test_build_variables(groupset):
 
 
 def test_retrieve_groups():
-    hv = HV(pm.Normal, group='room', mu=HV(pm.Normal, group='building', mu=HV(pm.Normal)))
-
-    assert all(c in hv.retrieve_groups() for c in ['room', 'building', 'global'])
+    hv = Distribution(pm.Normal, column='room', mu=Distribution(pm.Normal, column='building', mu=Distribution(pm.Normal)))
+    assert all(c in hv.retrieve_columns() for c in ['room', 'building', 'global'])
