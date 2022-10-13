@@ -6,6 +6,7 @@ from typing import Set, Optional, List
 import numpy as np
 import numpy.typing as npt
 
+
 class Node:
     """
     Abstract class for relational nodes
@@ -56,7 +57,7 @@ class Node:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def map_to(self, other: 'Node') -> Optional[npt.NDArray[int]]:
+    def map_to(self, other: 'Node') -> npt.NDArray[int]:
         """
         Get a mapping from other group to this group. If the other group is unrelated to this group, the mapping will
         be from the other group to a pair group.
@@ -69,6 +70,10 @@ class Node:
         -------
         List of the member nodes of other, in an order to be mapped to the correct member of this group (or a pair group)
         """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def reduced_repr(self) -> 'Node':
         raise NotImplementedError
 
     def __str__(self):
@@ -128,7 +133,7 @@ class NodePair(Node, ABC):
         return members
 
     @cache
-    def get_members(self) -> List['NodePair']:
+    def get_members(self) -> List[Node]:
         """
         Init the member list, varying strategies depending on relation of a and b.
         Returns
@@ -155,7 +160,13 @@ class NodePair(Node, ABC):
 
     @cache
     def is_parent_to(self, other: Node) -> bool:
-        return self.a.is_parent_to(other) and self.b.is_parent_to(other)
+        if self.representation() == other.representation():
+            return False
+        if self.a.is_parent_to(self.b):
+            return self.b.is_parent_to(other)
+        if self.b.is_parent_to(self.a):
+            return self.a.is_parent_to(other)
+        return self.a.is_parent_to(other) or self.b.is_parent_to(other)
 
     @cache
     def get_parents(self) -> Set[Node]:
@@ -181,11 +192,11 @@ class NodePair(Node, ABC):
         return self.a.representation().union(self.b.representation())
 
     @cache
-    def reduce_pair(self) -> Node:
+    def reduced_repr(self) -> Node:
         if self.representation() == self.a.representation():
-            return self.a
+            return self.a.reduced_repr()
         if self.representation() == self.b.representation():
-            return self.b
+            return self.b.reduced_repr()
         return self
 
     @cache
@@ -193,15 +204,15 @@ class NodePair(Node, ABC):
         return '_'.join(map(str, self.representation()))
 
     @cache
-    def map_to(self, other: Node) -> Optional[npt.NDArray[int]]:
+    def map_to(self, other: Node) -> npt.NDArray[int]:
         if other.representation() == self.representation():
             return np.arange(len(self))
 
-        if not other.is_parent_to(self):
-            return NodePair(self, other).map_to(other)
-
         if self.is_parent_to(other):
-            raise ValueError('Mapping from parent to children not applicable')
+            raise ValueError('Mapping from parent to child is not applicable')
+
+        if not other.is_parent_to(self):
+            return ValueError('Mapping between unrelated is not applicable')
 
         return np.array([
             next(
@@ -249,7 +260,13 @@ class AtomicNode(Node, ABC):
     def representation(self) -> Set[Node]:
         return {self}
 
-    def map_to(self, other: Node) -> Optional[npt.NDArray[int]]:
+    def reduced_repr(self) -> 'Node':
+        return self
+
+    def map_to(self, other: Node) -> npt.NDArray[int]:
+        if self.is_parent_to(other):
+            raise ValueError('Mapping from parent to child is not applicable')
+
         return NodePair(self, other).map_to(other)
 
 

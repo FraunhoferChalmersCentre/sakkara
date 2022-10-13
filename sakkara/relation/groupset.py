@@ -10,7 +10,7 @@ from sakkara.relation.node import Node, AtomicNode, CellNode
 @dataclass(frozen=True)
 class GroupSet:
     """
-    Set of groups
+    Set of group nodes used for PyMC model creation
     """
     groups: Dict[str, AtomicNode]
 
@@ -27,7 +27,7 @@ class GroupSet:
         return coords_dict
 
 
-def get_parent_df(df) -> pd.DataFrame:
+def get_parent_df(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create a matrix of parent mappings between columns in a dataframe
     Parameters
@@ -36,7 +36,8 @@ def get_parent_df(df) -> pd.DataFrame:
 
     Returns
     -------
-    Dataframe of size CxC with parent mappings. Rows are sorted with successively lower hierarchy levels.
+    Dataframe of size CxC with parent mappings. Rows are sorted from highest to lowest hierarchy level. Element (i,j)
+    True means that j is a parent to i.
     """
     groups = list(df.columns)
     counts_df = pd.DataFrame(index=groups, columns=groups, data=False)
@@ -51,10 +52,10 @@ def get_parent_df(df) -> pd.DataFrame:
 def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[Node],
                         member_parents: Dict[str, Set[Node]]) -> None:
     """
-    Add member parents of a composite group
+    Add member parents of a group
     Parameters
     ----------
-    group_name: Name of the composite group
+    group_name: Name of the group
     df: Original dataframe
     parents: All composite groups that is a parent to the composite group with group_name
     member_parents: Dictionary with mapping from parent member
@@ -68,8 +69,7 @@ def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[Node],
                     member_parents[str(mn)].add(parent_member)
 
 
-def init_column_node(name: str, parent_names: List[str], df: pd.DataFrame,
-                     groups: Dict[str, AtomicNode]) -> AtomicNode:
+def add_column_node(name: str, parent_names: List[str], df: pd.DataFrame, groups: Dict[str, AtomicNode]) -> None:
     """
     Init a single composite group.
 
@@ -90,20 +90,22 @@ def init_column_node(name: str, parent_names: List[str], df: pd.DataFrame,
     selection_df = df.loc[:, [name] + list(map(str, parents))]
 
     member_parents = {str(k): set() for k in member_names}
-    fill_member_parents(str(name), selection_df, parents, member_parents)
+    fill_member_parents(name, selection_df, parents, member_parents)
 
     members = []
     for member_name in member_names:
         new_member = CellNode(member_name, member_parents[member_name])
+        # Add new member as child to member of parent
         for member_parent in member_parents[member_name]:
             member_parent.add_child(new_member)
         members.append(new_member)
 
-    new_node = AtomicNode(str(name), members, parents)
+    # Create group node
+    new_node = AtomicNode(name, members, parents)
     for parent in parents:
         parent.add_child(new_node)
 
-    return new_node
+    groups[name] = new_node
 
 
 def init(df: pd.DataFrame) -> GroupSet:
@@ -118,6 +120,6 @@ def init(df: pd.DataFrame) -> GroupSet:
 
     parent_df = get_parent_df(df)
     for i, (group_name, is_parent) in enumerate(parent_df.iterrows()):
-        groups[str(group_name)] = init_column_node(str(group_name), is_parent.index[is_parent], tmp_df, groups)
+        add_column_node(str(group_name), is_parent.index[is_parent], tmp_df, groups)
 
     return GroupSet(groups)

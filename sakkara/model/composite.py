@@ -11,7 +11,7 @@ from sakkara.relation.groupset import GroupSet
 
 class CompositeComponent(ModelComponent, ABC):
     """
-    Class for intermediate states from mathematical operations between components
+    Class for intermediate states of mathematical operations between components
     """
 
     def __init__(self, a: ModelComponent, b: ModelComponent, op: Callable[[Any, Any], Any], name: str = None):
@@ -30,7 +30,7 @@ class CompositeComponent(ModelComponent, ABC):
                 c.build(groupset)
 
     def build_node(self, groupset: GroupSet) -> None:
-        self.node = NodePair(self.a.node, self.b.node).reduce_pair()
+        self.node = NodePair(self.a.node, self.b.node).reduced_repr()
 
     def get_mapped_variable(self, component: ModelComponent) -> at.TensorVariable:
         if len(component.node) == 1:
@@ -48,30 +48,6 @@ class CompositeComponent(ModelComponent, ABC):
 
     def retrieve_columns(self) -> Set[str]:
         return self.a.retrieve_columns().union(self.b.retrieve_columns())
-
-    def __add__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.add)
-
-    def __sub__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.sub)
-
-    def __mul__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.mul)
-
-    def __rmul__(self, other) -> ModelComponent:
-        return CompositeComponent(other, self, operator.mul)
-
-    def __truediv__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.truediv)
-
-
-class OperationBaseComponent(ModelComponent, ABC):
-    """
-    Base class for components
-    """
-    def __init__(self, name: str, column: str):
-        super().__init__(name)
-        self.column = column
 
     def __add__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.add)

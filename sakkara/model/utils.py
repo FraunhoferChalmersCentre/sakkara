@@ -5,7 +5,7 @@ import pandas as pd
 import pymc as pm
 
 from sakkara.model.base import ModelComponent
-from sakkara.model.components import Distribution, Deterministic
+from sakkara.model.components import Distribution
 from sakkara.relation.groupset import init
 
 

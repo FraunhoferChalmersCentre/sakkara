@@ -11,12 +11,12 @@ from sakkara.model.components import Distribution
 
 @pytest.fixture
 def df():
-    rng = default_rng(100)
+    def rng(seed=100): return default_rng(seed)
 
     N = 5
 
     heating_power = np.repeat(1, N)
-    outdoor_temperature = np.cos(np.linspace(0, 2 * np.pi, N)) - 1 + rng.uniform(-1, 1, N)
+    outdoor_temperature = np.cos(np.linspace(0, 2 * np.pi, N)) - 1 + rng().uniform(-1, 1, N)
     time = np.arange(N)
 
     df = pd.DataFrame({'building': np.repeat(['a', 'b'], 2 * N),
@@ -92,14 +92,18 @@ def test_minimal_linreg():
                             data=data['y'])
 
     built_model = build(df, likelihood)
-    with built_model:
-        idata = pm.fit(1, 'advi')
     assert isinstance(built_model, pm.Model)
+    assert pm.draw(intercept.variable).shape == ()
+    assert pm.draw(coeff.variable).shape == (2,)
+    assert pm.draw(likelihood.variable).shape == (10,)
+    assert pm.draw(coeff.components['mu'].variable).shape == ()
+    assert pm.draw(coeff.components['sigma'].variable).shape == ()
+    assert pm.draw(likelihood.components['sigma'].variable).shape == ()
 
 
 def test_sampling(likelihood, df):
     with build(df, likelihood):
-        idata = pm.fit(100000, method='advi', random_seed=1000).sample(1000)
+        idata = pm.fit(50000, method='advi', random_seed=1000).sample(1000, random_seed=1000)
 
     result = az.summary(idata)
     assert pytest.approx(result.loc['mu_outdoor_temperature', 'mean'], abs=5e-2) == .7
@@ -107,7 +111,7 @@ def test_sampling(likelihood, df):
     assert pytest.approx(result.loc['outdoor_temperature[b]', 'mean']) == .4
     assert pytest.approx(result.loc['mu_mu_heating_power', 'mean'], abs=5e-2) == .7
     assert pytest.approx(result.loc['mu_heating_power[a]', 'mean'], abs=5e-2) == .9
-    assert pytest.approx(.9, result.loc['mu_heating_power[b]', 'mean'], abs=5e-2) == .5
+    assert pytest.approx(result.loc['mu_heating_power[b]', 'mean'], abs=5e-2) == .5
     assert pytest.approx(result.loc['heating_power[a1]', 'mean']) == 1.
     assert pytest.approx(result.loc['heating_power[a2]', 'mean']) == .8
     assert pytest.approx(result.loc['heating_power[b1]', 'mean']) == .6

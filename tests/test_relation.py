@@ -129,6 +129,8 @@ def test_internal_relation(df, graph_dict):
         assert gs[k].representation() == cp.representation()
 
         for child in v['children']:
+            assert gs[child] in gs[k].get_children()
+            assert not gs[k] in gs[child].get_children()
             cp = NodePair(gs[k], gs[child])
             assert gs[k].is_parent_to(cp)
             assert not gs[child].is_parent_to(cp)
@@ -136,11 +138,15 @@ def test_internal_relation(df, graph_dict):
             assert not cp.is_parent_to(gs[k])
         for parent in v['parents']:
             cp = NodePair(gs[parent], gs[k])
+            assert gs[k] in gs[parent].get_children()
+            assert not gs[parent] in gs[k].get_children()
             assert not gs[k].is_parent_to(cp)
             assert gs[parent].is_parent_to(cp)
             assert not cp.is_parent_to(gs[parent])
             assert not cp.is_parent_to(gs[k])
         for other in v['neither']:
+            assert not gs[other] in gs[k].get_children()
+            assert not gs[k] in gs[other].get_children()
             cp = NodePair(gs[k], gs[other])
             assert gs[k].is_parent_to(cp)
             assert gs[other].is_parent_to(cp)
@@ -152,29 +158,51 @@ def test_mapping(df):
     gs = groupset.init(df)
 
     aa = NodePair(gs['a'], gs['a'])
+    assert aa.reduced_repr() == gs['a']
     assert len(aa) == 2
     assert aa.map_to(gs['a']).tolist() == [0, 1]
     aaa = NodePair(aa, gs['a'])
+    assert aaa.reduced_repr() == gs['a']
     assert len(aaa) == 2
     assert aaa.map_to(gs['a']).tolist() == [0, 1]
     assert aaa.map_to(aa).tolist() == [0, 1]
+
+    with pytest.raises(ValueError):
+        gs['a'].map_to(gs['b'])
+        gs['a'].map_to(gs['c'])
+        gs['a'].map_to(gs['e'])
 
     ab = NodePair(gs['a'], gs['b'])
     assert len(ab) == 4
     assert ab.map_to(gs['a']).tolist() == [0, 0, 1, 1]
     assert ab.map_to(gs['b']).tolist() == [0, 1, 2, 3]
+    assert ab.reduced_repr() == gs['b']
+
+    with pytest.raises(ValueError):
+        ab.map_to(gs['c'])
+        ab.map_to(gs['e'])
 
     bd = NodePair(gs['b'], gs['d'])
     assert len(bd) == 5
     assert bd.map_to(gs['b']).tolist() == [0, 1, 2, 2, 3]
     assert bd.map_to(gs['d']).tolist() == [0, 0, 1, 2, 2]
     assert bd.map_to(gs['a']).tolist() == [0, 0, 1, 1, 1]
+    assert bd.map_to(gs['e']).tolist() == [0, 0, 0, 1, 1]
+    assert bd.reduced_repr() == bd
+
+    with pytest.raises(ValueError):
+        bd.map_to(gs['c'])
 
     abd = NodePair(ab, bd)
     assert len(abd) == 5
     assert abd.map_to(gs['b']).tolist() == [0, 1, 2, 2, 3]
     assert abd.map_to(gs['d']).tolist() == [0, 0, 1, 2, 2]
     assert abd.map_to(gs['a']).tolist() == [0, 0, 1, 1, 1]
+    assert abd.map_to(gs['e']).tolist() == [0, 0, 0, 1, 1]
+    assert abd.reduced_repr() == bd
+
+    with pytest.raises(ValueError):
+        abd.map_to(gs['c'])
 
     abdo = NodePair(abd, gs['o'])
     assert len(abdo) == 32
@@ -182,6 +210,7 @@ def test_mapping(df):
     assert abdo.map_to(gs['d']).tolist() == np.repeat(np.arange(3), [16, 5, 11]).tolist()
     assert abdo.map_to(gs['a']).tolist() == np.repeat(np.arange(2), 16).tolist()
     assert abdo.map_to(gs['o']).tolist() == np.arange(32).tolist()
+    assert abdo.reduced_repr() == gs['o']
 
     ac = NodePair(gs['a'], gs['c'])
     acb = NodePair(ac, gs['b'])
