@@ -1,7 +1,7 @@
 import abc
 import operator
 from abc import ABC
-from typing import Callable, Set, Any, List
+from typing import Callable, Set, Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,10 +16,17 @@ class ModelComponent:
         Abstract class for all model components (variables, data, parameters)
         """
 
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self):
         self.node = None
         self.variable = None
+
+    @abc.abstractmethod
+    def get_name(self) -> Optional[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set_name(self, name: str) -> None:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def clear(self) -> None:

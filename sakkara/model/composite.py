@@ -1,6 +1,6 @@
 import operator
 from abc import ABC
-from typing import Callable, Any, Set
+from typing import Callable, Any, Set, Optional
 
 import aesara.tensor as at
 
@@ -22,14 +22,32 @@ class CompositeComponent(ModelComponent, ABC):
     """
 
     def __init__(self, a: ModelComponent, b: ModelComponent, op: Callable[[Any, Any], Any], name: str = None):
-        if a.name is None or b.name is None:
-            raise ValueError('All components involved in mathematical operations must be named')
-        if op not in OP_SYMBOLS:
-            raise ValueError('Operation not implemented')
-        super().__init__(name if name is not None else a.name + ' ' + OP_SYMBOLS[op] + ' ' + b.name)
+        super().__init__()
+        self.name = name
         self.a = a
         self.b = b
         self.op = op
+
+    def get_name(self) -> Optional[str]:
+        if self.name is not None:
+            return self.name
+        a_name = self.a.get_name()
+        if a_name is None:
+            return None
+        b_name = self.b.get_name()
+        if b_name is None:
+            return None
+
+        if self.op not in OP_SYMBOLS:
+            raise NotImplementedError('Operation not implemented')
+
+        return a_name + ' ' + OP_SYMBOLS[self.op] + ' ' + b_name
+
+    def set_name(self, name: str) -> None:
+        if self.a.get_name() is None:
+            self.a.set_name(name + '(left)')
+        if self.b.get_name() is None:
+            self.a.set_name(name + '(right)')
 
     def clear(self):
         self.a.clear()
@@ -37,6 +55,8 @@ class CompositeComponent(ModelComponent, ABC):
 
     def prebuild(self, groupset: GroupSet) -> None:
         for c in [self.a, self.b]:
+            if c.get_name() is None:
+                raise ValueError('All components involved in mathematical operations must be named')
             if c.variable is None:
                 c.build(groupset)
 
