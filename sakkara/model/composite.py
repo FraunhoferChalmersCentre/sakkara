@@ -26,6 +26,8 @@ class CompositeComponent(ModelComponent, ABC):
 
     def prebuild(self, groupset: GroupSet) -> None:
         for c in [self.a, self.b]:
+            if c.name is None:
+                raise ValueError('All components involved in mathematical operations must be named')
             if c.variable is None:
                 c.build(groupset)
 
