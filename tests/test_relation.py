@@ -16,7 +16,7 @@ def df():
             'c': map(str, np.repeat(np.arange(8), 4)),
             'd': map(str, np.repeat(np.arange(3), [16, 5, 11])),
             'e': map(str, np.repeat(np.arange(2), [21, 11])),
-            'o': map(str, np.arange(32))
+            'o': map(str, np.arange(32)),
         }
     )
 
@@ -35,6 +35,7 @@ def graph_dict():
 
 
 def test_get_parent_df(df):
+    df['o_copy'] = df['o'].copy()
     parent_df = groupset.get_parent_df(df)
     group_order = list(parent_df.index)
 
@@ -72,6 +73,9 @@ def test_get_parent_df(df):
 
     # group e
     assert not any(parent_df.loc['e', list('abcd')])
+
+    assert not parent_df.loc['o_copy', 'o']
+    assert not parent_df.loc['o', 'o_copy']
 
 
 def test_init_groups(df):
