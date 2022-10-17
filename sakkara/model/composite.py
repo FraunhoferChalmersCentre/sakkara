@@ -8,6 +8,13 @@ from sakkara.model.base import ModelComponent
 from sakkara.relation.node import NodePair
 from sakkara.relation.groupset import GroupSet
 
+OP_SYMBOLS = {
+    operator.add: '+',
+    operator.sub: '-',
+    operator.mul: '*',
+    operator.truediv: '/'
+}
+
 
 class CompositeComponent(ModelComponent, ABC):
     """
@@ -15,7 +22,11 @@ class CompositeComponent(ModelComponent, ABC):
     """
 
     def __init__(self, a: ModelComponent, b: ModelComponent, op: Callable[[Any, Any], Any], name: str = None):
-        super().__init__(name)
+        if a.name is None or b.name is None:
+            raise ValueError('All components involved in mathematical operations must be named')
+        if op not in OP_SYMBOLS:
+            raise ValueError('Operation not implemented')
+        super().__init__(name if name is not None else a.name + ' ' + OP_SYMBOLS[op] + ' ' + b.name)
         self.a = a
         self.b = b
         self.op = op
