@@ -38,23 +38,23 @@ def df():
 
 def test_state_space_model(df):
     R = Concat(
-        {
+        name='R',
+        column='group',
+        components={
             0: Deterministic(0.),
             1: Distribution(pm.Normal, column='time', sigma=Distribution(pm.Exponential, lam=1))
-        },
-        name='R',
-        column='group')
+        }
+    )
 
     data = data_components(df)
 
     x_sigma = Distribution(pm.Exponential, lam=1)
 
-    x = {0: Distribution(pm.Normal, sigma=x_sigma)}
+    X = Concat(name='X', column='time')
+    X.add(0, Distribution(pm.Normal, sigma=x_sigma))
 
     for i in range(1, N):
-        x[i] = Distribution(pm.Normal, mu=x[i - 1], sigma=x_sigma)
-
-    X = Concat(x, name='X', column='time')
+        X.add(i, Distribution(pm.Normal, mu=X[i - 1], sigma=x_sigma))
 
     likelihood = Likelihood(pm.Normal, mu=X + R, sigma=Distribution(pm.Exponential, lam=10), data=data['y'])
 

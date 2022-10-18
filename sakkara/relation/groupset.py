@@ -40,9 +40,12 @@ def get_parent_df(df: pd.DataFrame) -> pd.DataFrame:
     True means that j is a parent to i.
     """
     groups = list(df.columns)
+    n_uniques = df.nunique(axis=0)
     counts_df = pd.DataFrame(index=groups, columns=groups, data=False)
     for i in range(len(groups)):
-        counts_df.loc[groups[i], groups[:i] + groups[i + 1:]] = df.groupby(groups[i]).nunique().max() == 1
+        counts_df.loc[groups[i], groups[:i] + groups[i + 1:]] = np.logical_and(
+            df.groupby(groups[i]).nunique().max() == 1,
+            n_uniques[groups[i]] > n_uniques[groups[:i] + groups[i + 1:]])
 
     counts_df['rank'] = counts_df.sum(axis=1)
     counts_df.sort_values(by='rank', inplace=True, ascending=True)
