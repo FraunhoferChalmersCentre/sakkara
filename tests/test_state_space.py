@@ -3,7 +3,6 @@ import pymc as pm
 import numpy as np
 import pandas as pd
 from numpy.random import default_rng
-import datetime
 
 from sakkara.model.components import Distribution, Deterministic, Concat
 from sakkara.model.utils import Likelihood, data_components, build

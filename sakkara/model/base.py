@@ -1,6 +1,7 @@
 import abc
 import operator
 from abc import ABC
+from copy import deepcopy
 from typing import Callable, Set, Any, List, Optional
 
 import numpy as np
@@ -95,3 +96,36 @@ class ModelComponent:
     @abc.abstractmethod
     def __truediv__(self, other) -> 'ModelComponent':
         raise NotImplementedError
+
+
+class FixedComponent(ModelComponent):
+    """
+    Class for fixed variables. This class is intended for internal usage, to specify deterministic values of a variables use the Deterministic class instead.
+    """
+
+    def __init__(self, value: Any, name: Optional[str] = None):
+        super().__init__()
+        self.name = name
+        self.values = value
+
+    def set_name(self, name: str) -> None:
+        self.name = name
+
+    def get_name(self) -> Optional[str]:
+        return self.name if self.name is not None else 'fixed'
+
+    def clear(self):
+        self.variable = None
+        self.node = None
+
+    def prebuild(self, groupset: GroupSet) -> None:
+        pass
+
+    def build_node(self, groupset: GroupSet) -> None:
+        self.node = groupset['global']
+
+    def build_variable(self) -> None:
+        self.variable = deepcopy(self.values)
+
+    def retrieve_columns(self) -> Set[str]:
+        return {'global'}

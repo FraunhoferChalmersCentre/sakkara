@@ -1,14 +1,13 @@
 import operator
 from abc import ABC
 from typing import Any, Set, Callable, Dict, Union, Optional
-from copy import deepcopy
 
 import aesara
 import aesara.tensor as at
 import pymc as pm
 import numpy.typing as npt
 
-from sakkara.model.base import ModelComponent
+from sakkara.model.base import ModelComponent, FixedComponent
 from sakkara.model.composite import CompositeComponent
 from sakkara.relation.node import NodePair
 from sakkara.relation.groupset import GroupSet
@@ -45,34 +44,7 @@ class OperationBaseComponent(ModelComponent, ABC):
         return CompositeComponent(self, other, operator.truediv)
 
     def __neg__(self):
-        self.sign = -1
-        return self
-
-
-class Hyperparameter(OperationBaseComponent, ABC):
-    """
-    Class for fixed variables. This class is intended for internal usage, to specify deterministic values of a variables use the Deterministic class instead.
-    """
-
-    def __init__(self, value: Any, name: str = None):
-        super().__init__(name)
-        self.values = value
-
-    def clear(self):
-        self.variable = None
-        self.node = None
-
-    def prebuild(self, groupset: GroupSet) -> None:
-        pass
-
-    def build_node(self, groupset: GroupSet) -> None:
-        self.node = groupset['global']
-
-    def build_variable(self) -> None:
-        self.variable = deepcopy(self.values)
-
-    def retrieve_columns(self) -> Set[str]:
-        return {'global'}
+        return CompositeComponent(FixedComponent(0), self, operator.sub)
 
 
 class HierarchicalComponent(OperationBaseComponent, ABC):
@@ -148,7 +120,7 @@ class Deterministic(PymcGenerateable, ABC):
     """
 
     def __init__(self, value: Union[float, npt.NDArray[float]], name: str = None, column: str = 'global'):
-        super().__init__(pm.Deterministic, name, column, {'var': Hyperparameter(aesara.shared(value))})
+        super().__init__(pm.Deterministic, name, column, {'var': FixedComponent(aesara.shared(value))})
 
 
 class Distribution(PymcGenerateable, ABC):
@@ -166,7 +138,7 @@ class Distribution(PymcGenerateable, ABC):
         column: Column of the group of the variable.
         kwargs: Parameters to the distribution.
         """
-        components = {k: v if isinstance(v, ModelComponent) else Hyperparameter(v) for k, v in kwargs.items()}
+        components = {k: v if isinstance(v, ModelComponent) else FixedComponent(v) for k, v in kwargs.items()}
         super().__init__(generator, name, column, components)
 
 

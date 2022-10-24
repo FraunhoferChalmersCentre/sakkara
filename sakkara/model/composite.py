@@ -4,7 +4,7 @@ from typing import Callable, Any, Set, Optional
 
 import aesara.tensor as at
 
-from sakkara.model.base import ModelComponent
+from sakkara.model.base import ModelComponent, FixedComponent
 from sakkara.relation.node import NodePair
 from sakkara.relation.groupset import GroupSet
 
@@ -47,7 +47,7 @@ class CompositeComponent(ModelComponent, ABC):
         if self.a.get_name() is None:
             self.a.set_name(name + '(left)')
         if self.b.get_name() is None:
-            self.a.set_name(name + '(right)')
+            self.b.set_name(name + '(right)')
 
     def clear(self):
         self.variable = None
@@ -55,11 +55,20 @@ class CompositeComponent(ModelComponent, ABC):
         self.b.clear()
 
     def prebuild(self, groupset: GroupSet) -> None:
-        for c in [self.a, self.b]:
-            if c.get_name() is None:
+        unbuilt = [self.a, self.b]
+        counter = 0
+        while 0 < len(unbuilt):
+            counter += 1
+            component = unbuilt.pop(0)
+            if component.get_name() is None:
+                # Other component may be needed to be built first
+                if counter < 3:
+                    unbuilt.append(component)
+                    continue
+                # Did not help to build other component first, name must defined for this explicitly
                 raise ValueError('All components involved in mathematical operations must be named')
-            if c.variable is None:
-                c.build(groupset)
+            if component.variable is None:
+                component.build(groupset)
 
     def build_node(self, groupset: GroupSet) -> None:
         self.node = NodePair(self.a.node, self.b.node).reduced_repr()
@@ -95,3 +104,6 @@ class CompositeComponent(ModelComponent, ABC):
 
     def __truediv__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.truediv)
+
+    def __neg__(self):
+        return CompositeComponent(FixedComponent(0), self, operator.sub)

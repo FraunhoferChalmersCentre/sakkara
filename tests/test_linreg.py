@@ -7,7 +7,7 @@ import pymc as pm
 
 from sakkara.model.composite import CompositeComponent
 from sakkara.model.utils import build, Likelihood, data_components
-from sakkara.model.components import Distribution, Hyperparameter
+from sakkara.model.components import Distribution, FixedComponent
 
 
 @pytest.fixture
@@ -86,17 +86,17 @@ def test_build_linreg_model(df, likelihood):
     assert isinstance(likelihood['mu'].a.a, Distribution)
     assert isinstance(likelihood['mu'].a.a['mu'], Distribution)
     assert isinstance(likelihood['mu'].a.a['sigma'], Distribution)
-    assert isinstance(likelihood['mu'].a.a['sigma']['lam'], Hyperparameter)
+    assert isinstance(likelihood['mu'].a.a['sigma']['lam'], FixedComponent)
 
     assert isinstance(likelihood['mu'].a.b, Distribution)
-    assert isinstance(likelihood['mu'].a.b['value'], Hyperparameter)
+    assert isinstance(likelihood['mu'].a.b['value'], FixedComponent)
 
     assert isinstance(likelihood['mu'].b, Distribution)
     assert isinstance(likelihood['mu'].b['mu'], Distribution)
     assert isinstance(likelihood['mu'].b['sigma'], Distribution)
     assert isinstance(likelihood['mu'].b['mu']['mu'], Distribution)
     assert isinstance(likelihood['mu'].b['mu']['sigma'], Distribution)
-    assert isinstance(likelihood['mu'].b['mu']['sigma']['lam'], Hyperparameter)
+    assert isinstance(likelihood['mu'].b['mu']['sigma']['lam'], FixedComponent)
 
     built_model = build(df, likelihood)
     assert isinstance(built_model, pm.Model)
