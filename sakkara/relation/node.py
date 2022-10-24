@@ -1,7 +1,7 @@
 import abc
 from abc import ABC
 from functools import cache
-from typing import Set, Optional, List
+from typing import Set, Optional, List, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -11,6 +11,9 @@ class Node:
     """
     Abstract class for relational nodes
     """
+    @abc.abstractmethod
+    def get_key(self) -> Any:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def is_parent_to(self, other: 'Node') -> bool:
@@ -95,6 +98,9 @@ class NodePair(Node, ABC):
         """
         self.a = a
         self.b = b
+
+    def get_key(self) -> Any:
+        return self.a.get_key(), self.b.get_key()
 
     def parent_child_member_pairs(self) -> List['NodePair']:
         """
@@ -226,7 +232,7 @@ class AtomicNode(Node, ABC):
         Class for a single instance node.
     """
 
-    def __init__(self, name: str, members: List['AtomicNode'], parents: Set['AtomicNode']):
+    def __init__(self, name: Any, members: List['AtomicNode'], parents: Set['AtomicNode']):
         """
 
         Parameters
@@ -238,6 +244,9 @@ class AtomicNode(Node, ABC):
         self.members = members
         self.parents = set(parents)
         self.children = set()
+
+    def get_key(self) -> Any:
+        return self.name
 
     def __str__(self):
         return self.name
@@ -271,5 +280,5 @@ class AtomicNode(Node, ABC):
 
 
 class CellNode(AtomicNode):
-    def __init__(self, name: str, parents: Set[AtomicNode]):
+    def __init__(self, name: Any, parents: Set[AtomicNode]):
         super().__init__(name, list(), parents)

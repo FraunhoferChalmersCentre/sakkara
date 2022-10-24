@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from operator import itemgetter
+from typing import Dict, List, Set, Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ class GroupSet:
     """
     groups: Dict[str, AtomicNode]
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str):
         return self.groups[item]
 
     def coords(self) -> Dict[str, np.ndarray]:
@@ -22,7 +23,7 @@ class GroupSet:
         for k, v in self.groups.items():
             names = np.empty(len(v), dtype=object)
             for i, m in enumerate(v.get_members()):
-                names[i] = str(m)
+                names[i] = m.get_key()
             coords_dict[k] = names
         return coords_dict
 
@@ -52,33 +53,38 @@ def get_parent_df(df: pd.DataFrame) -> pd.DataFrame:
     return counts_df.loc[:, df.columns]
 
 
-def fill_member_parents(group_name: str, df: pd.DataFrame, parents: Set[Node],
-                        member_parents: Dict[str, Set[Node]]) -> None:
+def get_member_parents(child_key: str, df: pd.DataFrame, parents: Set[Node]) -> Dict[Any, Set[CellNode]]:
     """
-    Add member parents of a group
+    Add member parents of the (child) group
     Parameters
     ----------
-    group_name: Name of the group
+    child_key: Name of the (child) group
     df: Original dataframe
     parents: All composite groups that is a parent to the composite group with group_name
-    member_parents: Dictionary with mapping from parent member
     """
+    member_parents = {k: set() for k in list(df[child_key])}
     if len(parents) > 0:
-        mappings = df.groupby(group_name).first()
+        mappings = df.groupby(child_key).first().reset_index()
 
         for parent in parents:
+            parent_mappings = mappings[parent.get_key()]
             for parent_member in parent.get_members():
-                for mn in mappings.index[mappings[str(parent)] == str(parent_member)]:
-                    member_parents[str(mn)].add(parent_member)
+                for matched_child_key in mappings.loc[parent_mappings == parent_member.get_key(), child_key]:
+                    if matched_child_key not in member_parents:
+                        member_parents[matched_child_key] = set()
+                    member_parents[matched_child_key].add(parent_member)
+
+    return member_parents
 
 
-def add_column_node(name: str, parent_names: List[str], df: pd.DataFrame, groups: Dict[str, AtomicNode]) -> None:
+def create_column_node(column: str, parent_names: List[str], df: pd.DataFrame,
+                       groups: Dict[Any, AtomicNode]) -> AtomicNode:
     """
     Init a single composite group.
 
     Parameters
     ----------
-    name: Name of the composite group
+    column: Name of the composite group
     parent_names: Names of the parents
     df: Orginal dataframe
     groups: Dict of names mapped to the pre-created parents
@@ -87,16 +93,13 @@ def add_column_node(name: str, parent_names: List[str], df: pd.DataFrame, groups
     -------
 
     """
-    member_names = list(map(str, df[name].unique()))
+    parents = set(groups[pn] for pn in parent_names)
+    selection_df = df.loc[:, [column] + parent_names]
 
-    parents = set(map(lambda p: groups[p], parent_names))
-    selection_df = df.loc[:, [name] + list(map(str, parents))]
+    member_parents = get_member_parents(column, selection_df, parents)
 
-    member_parents = {str(k): set() for k in member_names}
-    fill_member_parents(name, selection_df, parents, member_parents)
-
-    members = []
-    for member_name in member_names:
+    members = list()
+    for member_name in member_parents.keys():
         new_member = CellNode(member_name, member_parents[member_name])
         # Add new member as child to member of parent
         for member_parent in member_parents[member_name]:
@@ -104,11 +107,11 @@ def add_column_node(name: str, parent_names: List[str], df: pd.DataFrame, groups
         members.append(new_member)
 
     # Create group node
-    new_node = AtomicNode(name, members, parents)
+    new_node = AtomicNode(column, members, parents)
     for parent in parents:
         parent.add_child(new_node)
 
-    groups[name] = new_node
+    return new_node
 
 
 def init(df: pd.DataFrame) -> GroupSet:
@@ -117,12 +120,12 @@ def init(df: pd.DataFrame) -> GroupSet:
     :param df: DataFrame containing only the group columns
     :return: GroupSet created from the input DataFrame
     """
-    tmp_df = df.copy().astype(str)
+    tmp_df = df.copy()
 
     groups = dict()
 
     parent_df = get_parent_df(df)
     for i, (group_name, is_parent) in enumerate(parent_df.iterrows()):
-        add_column_node(str(group_name), is_parent.index[is_parent], tmp_df, groups)
+        groups[str(group_name)] = create_column_node(str(group_name), list(is_parent.index[is_parent]), tmp_df, groups)
 
     return GroupSet(groups)

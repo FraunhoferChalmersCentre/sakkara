@@ -15,8 +15,8 @@ def df():
             'b': map(str, np.repeat(np.arange(4), 8)),
             'c': map(str, np.repeat(np.arange(8), 4)),
             'd': map(str, np.repeat(np.arange(3), [16, 5, 11])),
-            'e': map(str, np.repeat(np.arange(2), [21, 11])),
-            'o': map(str, np.arange(32)),
+            'e': np.repeat(np.arange(2), [21, 11]),
+            'o': np.arange(32),
         }
     )
 
@@ -103,8 +103,8 @@ def test_get_coords(df):
     assert list(coords['b']) == list(map(str, np.arange(4)))
     assert list(coords['c']) == list(map(str, np.arange(8)))
     assert list(coords['d']) == list(map(str, np.arange(3)))
-    assert list(coords['e']) == list(map(str, np.arange(2)))
-    assert list(coords['o']) == list(map(str, np.arange(32)))
+    assert list(coords['e']) == list(np.arange(2))
+    assert list(coords['o']) == list(np.arange(32))
 
 
 def test_relations(df, graph_dict):

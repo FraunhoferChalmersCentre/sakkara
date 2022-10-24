@@ -43,6 +43,10 @@ class OperationBaseComponent(ModelComponent, ABC):
     def __truediv__(self, other) -> ModelComponent:
         return CompositeComponent(self, other, operator.truediv)
 
+    def __neg__(self):
+        self.sign = -1
+        return self
+
 
 class Hyperparameter(OperationBaseComponent, ABC):
     """
@@ -81,7 +85,7 @@ class HierarchicalComponent(OperationBaseComponent, ABC):
         self.components = components
 
     def __getitem__(self, item: Any):
-        return self.components[str(item)]
+        return self.components[item]
 
     def clear(self):
         self.variable = None
@@ -182,7 +186,7 @@ class Concat(HierarchicalComponent, ABC):
         if components is None:
             components = {}
         else:
-            components = {str(k): v if isinstance(v, ModelComponent) else Deterministic(v) for k, v in
+            components = {k: v if isinstance(v, ModelComponent) else Deterministic(v) for k, v in
                           components.items()}
         super().__init__(name, column, components)
         self.column_node = None
@@ -196,7 +200,7 @@ class Concat(HierarchicalComponent, ABC):
     def add(self, key: Any, component: Union[float, npt.NDArray, ModelComponent]):
         if not isinstance(component, ModelComponent):
             component = Deterministic(component)
-        self.components[str(key)] = component
+        self.components[key] = component
 
     def build_node(self, groupset: GroupSet) -> None:
         self.column_node = groupset[self.column]
@@ -211,7 +215,7 @@ class Concat(HierarchicalComponent, ABC):
         built_components = {}
 
         for key, component in self.components.items():
-            member_index = next(i for i, m in enumerate(map(str, self.column_node.get_members())) if m == key)
+            member_index = next(i for i, m in enumerate(self.column_node.get_members()) if m.get_key() == key)
             node_to_column = self.node.map_to(self.column_node)
             node_to_component = self.node.map_to(self.components_node)
             components = node_to_component[node_to_column == member_index]
@@ -226,9 +230,9 @@ class Concat(HierarchicalComponent, ABC):
                     built_components[key] = component.variable[mapping]
 
         undefined_members = list(
-            m for m in self.column_node.get_members() if str(m) not in list(built_components.keys()))
+            m for m in self.column_node.get_members() if m.get_key() not in list(built_components.keys()))
         if 0 < len(undefined_members):
             raise KeyError('Members ' + ','.join(map(str, undefined_members)) + ' of ' + str(
                 self.column_node) + ' must be defined to build concat variable')
 
-        self.variable = at.concatenate([built_components[str(m)].flatten() for m in self.column_node.get_members()])
+        self.variable = at.concatenate([built_components[m.get_key()].flatten() for m in self.column_node.get_members()])
