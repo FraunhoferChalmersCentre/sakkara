@@ -29,7 +29,7 @@ def test_build_variables(groupset):
     rv_building = Distribution(pm.Normal, column='building', mu=rv_global)
     rv_sensor = Distribution(pm.Normal, column='sensor', mu=rv_building, name='rv')
 
-    sensor_building_sum = - rv_building + rv_sensor
+    sensor_building_sum = - rv_building + 1 / rv_sensor
     N_DRAWS = 1000
 
     with pm.Model(coords=coords):
@@ -50,7 +50,7 @@ def test_build_variables(groupset):
         assert sum(np.abs(s[:, 2:].mean(axis=1) - b[:, 1]) <= 1 / np.sqrt(2)) == pytest.approx(p * N_DRAWS,
                                                                                                abs=abs_error)
 
-        assert all(a == pytest.approx(b) for a, b, in zip(sb.flatten(), (s - b[:, [0, 0, 1, 1]]).flatten()))
+        assert all(a == pytest.approx(b) for a, b, in zip(sb.flatten(), (1 / s - b[:, [0, 0, 1, 1]]).flatten()))
 
 
 def test_retrieve_groups():

@@ -129,3 +129,10 @@ class FixedComponent(ModelComponent):
 
     def retrieve_columns(self) -> Set[str]:
         return {'global'}
+
+
+def wrap(other: Any) -> ModelComponent:
+    if isinstance(other, ModelComponent):
+        return other
+    else:
+        return FixedComponent(other)

@@ -7,7 +7,7 @@ import aesara.tensor as at
 import pymc as pm
 import numpy.typing as npt
 
-from sakkara.model.base import ModelComponent, FixedComponent
+from sakkara.model.base import ModelComponent, FixedComponent, wrap
 from sakkara.model.composite import CompositeComponent
 from sakkara.relation.node import NodePair
 from sakkara.relation.groupset import GroupSet
@@ -28,20 +28,23 @@ class OperationBaseComponent(ModelComponent, ABC):
     def set_name(self, name: str) -> None:
         self.name = name
 
-    def __add__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.add)
+    def __add__(self, other: Any) -> ModelComponent:
+        return CompositeComponent(self, wrap(other), operator.add)
 
-    def __sub__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.sub)
+    def __sub__(self, other: Any) -> ModelComponent:
+        return CompositeComponent(self, wrap(other), operator.sub)
 
-    def __mul__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.mul)
+    def __mul__(self, other: Any) -> ModelComponent:
+        return CompositeComponent(self, wrap(other), operator.mul)
 
-    def __rmul__(self, other) -> ModelComponent:
-        return CompositeComponent(other, self, operator.mul)
+    def __rmul__(self, other: Any) -> ModelComponent:
+        return CompositeComponent(wrap(other), self, operator.mul)
 
-    def __truediv__(self, other) -> ModelComponent:
-        return CompositeComponent(self, other, operator.truediv)
+    def __truediv__(self, other: Any) -> ModelComponent:
+        return CompositeComponent(self, wrap(other), operator.truediv)
+
+    def __rtruediv__(self, other: Any):
+        return CompositeComponent(wrap(other), self, operator.truediv)
 
     def __neg__(self):
         return CompositeComponent(FixedComponent(0), self, operator.sub)
