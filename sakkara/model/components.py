@@ -1,6 +1,7 @@
 import operator
 from abc import ABC
 from typing import Any, Set, Callable, Dict, Union, Optional
+from copy import deepcopy
 
 import aesara
 import aesara.tensor as at
@@ -68,7 +69,7 @@ class Hyperparameter(OperationBaseComponent, ABC):
         self.node = groupset['global']
 
     def build_variable(self) -> None:
-        self.variable = self.values
+        self.variable = deepcopy(self.values)
 
     def retrieve_columns(self) -> Set[str]:
         return {'global'}
@@ -206,7 +207,7 @@ class Concat(HierarchicalComponent, ABC):
         self.column_node = groupset[self.column]
 
         self.components_node = next(iter(self.components.values())).node
-        for key, component in self.components.items():
+        for component in self.components.values():
             self.components_node = NodePair(self.components_node, component.node).reduced_repr()
 
         self.node = NodePair(self.column_node, self.components_node).reduced_repr()

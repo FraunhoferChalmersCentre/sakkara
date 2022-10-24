@@ -50,6 +50,7 @@ class CompositeComponent(ModelComponent, ABC):
             self.a.set_name(name + '(right)')
 
     def clear(self):
+        self.variable = None
         self.a.clear()
         self.b.clear()
 

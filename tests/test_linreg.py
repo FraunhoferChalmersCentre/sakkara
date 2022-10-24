@@ -5,8 +5,9 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
+from sakkara.model.composite import CompositeComponent
 from sakkara.model.utils import build, Likelihood, data_components
-from sakkara.model.components import Distribution
+from sakkara.model.components import Distribution, Hyperparameter
 
 
 @pytest.fixture
@@ -75,33 +76,58 @@ def likelihood(df):
     return likelihood
 
 
-def test_minimal_linreg():
-    x = np.random.randn(10)
-    group = np.repeat([0, 1], 5)
-    k = np.array([1, -1])
-    y = x * k[group] + np.random.randn() * 1e-3
-    df = pd.DataFrame({'x': x, 'y': y, 'group': group})
+def test_build_linreg_model(df, likelihood):
+    assert isinstance(likelihood, Likelihood)
 
-    data = data_components(df)
-    coeff = Distribution(pm.Normal, name='x', column='group', mu=Distribution(pm.Normal),
-                         sigma=Distribution(pm.Exponential, lam=1))
-    intercept = Distribution(pm.Normal, name='intercept')
+    assert isinstance(likelihood['mu'], CompositeComponent)
 
-    likelihood = Likelihood(pm.Normal, name='est', mu=coeff * data['x'] + intercept,
-                            sigma=Distribution(pm.Exponential, lam=1),
-                            data=data['y'])
+    assert isinstance(likelihood['mu'].a, CompositeComponent)
+
+    assert isinstance(likelihood['mu'].a.a, Distribution)
+    assert isinstance(likelihood['mu'].a.a['mu'], Distribution)
+    assert isinstance(likelihood['mu'].a.a['sigma'], Distribution)
+    assert isinstance(likelihood['mu'].a.a['sigma']['lam'], Hyperparameter)
+
+    assert isinstance(likelihood['mu'].a.b, Distribution)
+    assert isinstance(likelihood['mu'].a.b['value'], Hyperparameter)
+
+    assert isinstance(likelihood['mu'].b, Distribution)
+    assert isinstance(likelihood['mu'].b['mu'], Distribution)
+    assert isinstance(likelihood['mu'].b['sigma'], Distribution)
+    assert isinstance(likelihood['mu'].b['mu']['mu'], Distribution)
+    assert isinstance(likelihood['mu'].b['mu']['sigma'], Distribution)
+    assert isinstance(likelihood['mu'].b['mu']['sigma']['lam'], Hyperparameter)
 
     built_model = build(df, likelihood)
     assert isinstance(built_model, pm.Model)
-    assert pm.draw(intercept.variable).shape == ()
-    assert pm.draw(coeff.variable).shape == (2,)
-    assert pm.draw(likelihood.variable).shape == (10,)
-    assert pm.draw(coeff.components['mu'].variable).shape == ()
-    assert pm.draw(coeff.components['sigma'].variable).shape == ()
-    assert pm.draw(likelihood.components['sigma'].variable).shape == ()
+
+    assert pm.draw(likelihood.variable).shape == (16,)
+
+    assert pm.draw(likelihood['mu'].variable).shape == (16,)
+    assert pm.draw(likelihood['mu'].a.variable).shape == (16,)
+    assert pm.draw(likelihood['mu'].a.b.variable).shape == (16,)
+    assert pm.draw(likelihood['mu'].a.a.variable).shape == (2,)
+    assert pm.draw(likelihood['mu'].a.a['mu'].variable).shape == ()
+    assert pm.draw(likelihood['mu'].a.a['sigma'].variable).shape == ()
+    assert pm.draw(likelihood['mu'].b['mu'].variable).shape == (2,)
+    assert pm.draw(likelihood['mu'].b['sigma'].variable).shape == ()
+    assert pm.draw(likelihood['mu'].b.variable).shape == (4,)
+    assert pm.draw(likelihood['mu'].b['mu']['mu'].variable).shape == ()
+    assert pm.draw(likelihood['mu'].b['mu']['sigma'].variable).shape == ()
+
+    assert pm.draw(likelihood['sigma'].variable).shape == ()
 
 
-def test_sampling(likelihood, df):
+def test_rebuild_model(df, likelihood):
+    with build(df, likelihood):
+        saved_variable = likelihood.variable
+        _ = pm.fit(1, method='advi')
+    with build(df, likelihood):
+        _ = pm.fit(1, method='advi')
+        assert likelihood.variable != saved_variable
+
+
+def test_sampling(df, likelihood):
     with build(df, likelihood):
         idata = pm.fit(50000, method='advi', random_seed=1000).sample(1000, random_seed=1000)
 
