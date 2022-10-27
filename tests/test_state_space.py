@@ -41,10 +41,10 @@ def df():
 def test_state_space_model(df):
     R = Concat(
         name='R',
-        column='group',
+        columns='group',
         components={
-            0: Deterministic(0.),
-            1: Distribution(pm.Normal, column='time', sigma=Distribution(pm.Exponential, lam=1))
+            0: 0,
+            1: Distribution(pm.Normal, columns='time', sigma=Distribution(pm.Exponential, lam=1))
         }
     )
 
@@ -54,7 +54,7 @@ def test_state_space_model(df):
 
     timesteps = df['time'].unique()
 
-    X = Concat(name='X', column='time')
+    X = Concat(name='X', columns='time')
     X.add(timesteps[0], Distribution(pm.Normal, sigma=x_sigma))
 
     for i in range(1, N):
@@ -63,6 +63,6 @@ def test_state_space_model(df):
     likelihood = Likelihood(pm.Normal, mu=X + R, sigma=Distribution(pm.Exponential, lam=10), data=data['y'])
 
     built_model = build(df, likelihood)
-    assert len(pm.draw(X.variable)) == 20
-    assert len(pm.draw(R.variable)) == 23
-    assert len(pm.draw(likelihood.variable)) == 23
+    assert pm.draw(X.variable).shape == (20,)
+    assert pm.draw(R.variable).shape == (2, 20)
+    assert pm.draw(likelihood.variable).shape == (23,)

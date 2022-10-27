@@ -47,7 +47,7 @@ def df():
 def likelihood(df):
     coeff = Distribution(pm.Normal,
                          name='outdoor_temperature',
-                         column='building',
+                         columns='building',
                          mu=Distribution(
                              pm.Normal
                          ),
@@ -58,10 +58,10 @@ def likelihood(df):
                          )
     intercept = Distribution(pm.Normal,
                              name='heating_power',
-                             column='room',
+                             columns='room',
                              mu=Distribution(
                                  pm.Normal,
-                                 column='building',
+                                 columns='building',
                                  mu=Distribution(pm.Normal),
                                  sigma=Distribution(pm.Exponential, lam=10)
                              ),

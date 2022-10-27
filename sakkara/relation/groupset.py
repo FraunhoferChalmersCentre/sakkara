@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from operator import itemgetter
-from typing import Dict, List, Set, Any, Iterable
+from typing import Dict, List, Set, Any
 
 import numpy as np
 import pandas as pd
 
-from sakkara.relation.node import Node, AtomicNode, CellNode
+from sakkara.relation.node import AtomicNode, CellNode
 
 
 @dataclass(frozen=True)
@@ -21,9 +20,9 @@ class GroupSet:
     def coords(self) -> Dict[str, np.ndarray]:
         coords_dict = {}
         for k, v in self.groups.items():
-            names = np.empty(len(v), dtype=object)
+            names = np.empty(len(v.get_members()), dtype=object)
             for i, m in enumerate(v.get_members()):
-                names[i] = m.get_key()
+                names[i] = m.get_key()[0]
             coords_dict[k] = names
         return coords_dict
 
@@ -53,7 +52,7 @@ def get_parent_df(df: pd.DataFrame) -> pd.DataFrame:
     return counts_df.loc[:, df.columns]
 
 
-def get_member_parents(child_key: str, df: pd.DataFrame, parents: Set[Node]) -> Dict[Any, Set[CellNode]]:
+def get_member_parents(child_key: str, df: pd.DataFrame, parents: Set[AtomicNode]) -> Dict[Any, Set[CellNode]]:
     """
     Add member parents of the (child) group
     Parameters
@@ -67,9 +66,9 @@ def get_member_parents(child_key: str, df: pd.DataFrame, parents: Set[Node]) -> 
         mappings = df.groupby(child_key).first().reset_index()
 
         for parent in parents:
-            parent_mappings = mappings[parent.get_key()]
+            parent_mappings = mappings[parent.get_key()[0]]
             for parent_member in parent.get_members():
-                for matched_child_key in mappings.loc[parent_mappings == parent_member.get_key(), child_key]:
+                for matched_child_key in mappings.loc[parent_mappings == parent_member.get_key()[0], child_key]:
                     if matched_child_key not in member_parents:
                         member_parents[matched_child_key] = set()
                     member_parents[matched_child_key].add(parent_member)
@@ -98,13 +97,13 @@ def create_column_node(column: str, parent_names: List[str], df: pd.DataFrame,
 
     member_parents = get_member_parents(column, selection_df, parents)
 
-    members = list()
-    for member_name in member_parents.keys():
+    members = np.empty(len(member_parents), dtype=object)
+    for i, member_name in enumerate(df[column].unique()):
         new_member = CellNode(member_name, member_parents[member_name])
         # Add new member as child to member of parent
         for member_parent in member_parents[member_name]:
             member_parent.add_child(new_member)
-        members.append(new_member)
+        members[i] = new_member
 
     # Create group node
     new_node = AtomicNode(column, members, parents)

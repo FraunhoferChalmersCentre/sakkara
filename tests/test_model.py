@@ -9,8 +9,8 @@ from sakkara.relation.groupset import init, GroupSet
 
 
 @pytest.fixture
-def groupset() -> GroupSet:
-    df = pd.DataFrame(
+def df():
+    return pd.DataFrame(
         {
             'global': 'global',
             'building': np.repeat(list('ab'), 10),
@@ -19,20 +19,27 @@ def groupset() -> GroupSet:
             'obs': np.arange(20)
         })
 
+
+@pytest.fixture
+def groupset(df) -> GroupSet:
     return init(df)
 
 
-def test_build_variables(groupset):
-    coords = groupset.coords()
+def test_retrieve_groups():
+    hv = Distribution(pm.Normal, columns='room',
+                      mu=Distribution(pm.Normal, columns='building', mu=Distribution(pm.Normal)))
+    assert all(c in hv.retrieve_columns() for c in ['room', 'building', 'global'])
 
+
+def test_build_variables(groupset):
     rv_global = Distribution(pm.Normal, mu=0)
-    rv_building = Distribution(pm.Normal, column='building', mu=rv_global)
-    rv_sensor = Distribution(pm.Normal, column='sensor', mu=rv_building, name='rv')
+    rv_building = Distribution(pm.Normal, columns='building', mu=rv_global)
+    rv_sensor = Distribution(pm.Normal, columns='sensor', mu=rv_building, name='rv')
 
     sensor_building_sum = - rv_building + 1 / rv_sensor
     N_DRAWS = 1000
 
-    with pm.Model(coords=coords):
+    with pm.Model(coords=groupset.coords()):
         sensor_building_sum.build(groupset)
         sb, s, b, g = pm.draw(
             [sensor_building_sum.variable, rv_sensor.variable, rv_building.variable, rv_global.variable], N_DRAWS, 1)
@@ -53,7 +60,32 @@ def test_build_variables(groupset):
         assert all(a == pytest.approx(b) for a, b, in zip(sb.flatten(), (1 / s - b[:, [0, 0, 1, 1]]).flatten()))
 
 
-def test_retrieve_groups():
-    hv = Distribution(pm.Normal, column='room',
-                      mu=Distribution(pm.Normal, column='building', mu=Distribution(pm.Normal)))
-    assert all(c in hv.retrieve_columns() for c in ['room', 'building', 'global'])
+def test_tuple_column(df, groupset):
+    sigma = 1e-15
+    rv_time = Distribution(pm.Normal, mu=np.arange(5), sigma=sigma, columns='time')
+    rv_sensor = Distribution(pm.Normal, mu=np.arange(4) * 10, sigma=sigma, columns='sensor')
+    rv_combined = Distribution(pm.Normal, mu=rv_time + rv_sensor, sigma=sigma, name='combined')
+
+    rv_tuple_col = Distribution(pm.Normal, mu=np.sum(np.meshgrid(np.arange(5), np.arange(4) * 10), axis=0), sigma=sigma,
+                                columns=('time', 'sensor'), name='tuple')
+
+    rv_sum_1 = rv_tuple_col + rv_combined
+    rv_sum_2 = rv_combined + rv_tuple_col
+
+    rv_obs = rv_sum_1 + rv_sum_2 + Distribution(pm.Normal, sigma=sigma, columns='obs', name='observed')
+    with pm.Model(coords=groupset.coords()):
+        rv_obs.build(groupset)
+
+    assert rv_combined.node.representation() == rv_tuple_col.node.representation()
+    assert pm.draw(rv_time.variable).shape == (5,)
+    assert pm.draw(rv_sensor.variable).shape == (4,)
+    assert pm.draw(rv_tuple_col.variable).shape == (4, 5)
+    assert pm.draw(rv_combined.variable).shape == (5, 4)
+    assert pm.draw(rv_sum_1.variable).shape == (4, 5)
+    assert pm.draw(rv_sum_2.variable).shape == (5, 4)
+    assert pm.draw(rv_obs.variable).shape == (20,)
+
+    time_codes, _ = pd.factorize(df['time'])
+    sensor_codes, _ = pd.factorize(df['sensor'])
+    assert pm.draw(rv_obs.variable) == pytest.approx(
+        4 * np.arange(5)[time_codes] + 4 * (np.arange(4) * 10)[sensor_codes])

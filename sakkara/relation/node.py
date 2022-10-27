@@ -1,7 +1,7 @@
 import abc
 from abc import ABC
 from functools import cache
-from typing import Set, Optional, List, Any
+from typing import Set, List, Any, Tuple, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -11,8 +11,9 @@ class Node:
     """
     Abstract class for relational nodes
     """
+
     @abc.abstractmethod
-    def get_key(self) -> Any:
+    def get_key(self) -> Tuple[Any, ...]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -33,13 +34,10 @@ class Node:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_members(self) -> List['Node']:
+    def get_members(self) -> npt.NDArray['Node']:
         """
         Get all nodes linked as members of the node
         """
-
-    def __len__(self):
-        return len(self.get_members())
 
     @abc.abstractmethod
     def get_parents(self) -> Set['Node']:
@@ -59,11 +57,22 @@ class Node:
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def map_to(self, other: 'Node') -> npt.NDArray[int]:
+    def get_mapping(self, other: 'Node', match_fct: Callable) -> Tuple[npt.NDArray[int], ...]:
+        raveled_mapping = np.empty(self.get_members().ravel().shape, dtype=int)
+        raveled_self_members = self.get_members().ravel()
+        raveled_other_members = other.get_members().ravel()
+
+        for raveled_self_member_index, self_member in enumerate(raveled_self_members):
+            raveled_index = np.argmax(match_fct(self_member, raveled_other_members))
+            raveled_mapping[raveled_self_member_index] = raveled_index
+
+        return tuple(map(lambda x: x.reshape(self.get_members().shape).tolist(),
+                        np.unravel_index(raveled_mapping, other.get_members().shape)))
+
+    @cache
+    def map_to(self, other: 'Node') -> Tuple[npt.NDArray[int], ...]:
         """
-        Get a mapping from other group to this group. If the other group is unrelated to this group, the mapping will
-        be from the other group to a pair group.
+        Get a mapping from other group to this group.
 
         Parameters
         ----------
@@ -73,14 +82,28 @@ class Node:
         -------
         List of the member nodes of other, in an order to be mapped to the correct member of this group (or a pair group)
         """
-        raise NotImplementedError
+        if self.representation() == other.representation():
+            return self.get_mapping(other,
+                                    np.vectorize(
+                                        lambda om, sm: om.representation().intersection(sm.representation())))
+
+        if self.is_parent_to(other):
+            raise ValueError('Mapping from parent to child is not applicable.')
+
+        if not other.is_parent_to(self):
+            raise ValueError('Mapping between unrelated nodes is not applicable.')
+
+        # Other node is parent to self
+        return self.get_mapping(other, np.vectorize(
+            lambda sm, om: len(om.representation().intersection(sm.get_parents()))))
 
     @abc.abstractmethod
     def reduced_repr(self) -> 'Node':
         raise NotImplementedError
 
-    def __str__(self):
-        raise NotImplementedError
+
+def __str__(self):
+    raise NotImplementedError
 
 
 class NodePair(Node, ABC):
@@ -99,29 +122,29 @@ class NodePair(Node, ABC):
         self.a = a
         self.b = b
 
-    def get_key(self) -> Any:
-        return self.a.get_key(), self.b.get_key()
+    def get_key(self) -> Tuple[Any, ...]:
+        return self.a.get_key() + self.b.get_key()
 
-    def parent_child_member_pairs(self) -> List['NodePair']:
+    def parent_child_member_pairs(self) -> npt.NDArray['NodePair']:
         """
         Member initialization if a and b has a parent-child relation
         Parameters
-        ----------
-        a_parent: True if a is parent to b, False if b is parent to a
 
         Returns
         -------
         List of members, size same as member of child group
         """
-        members = list()
         parent, child = (self.a, self.b) if self.a.is_parent_to(self.b) else (self.b, self.a)
-        for i, child_member in enumerate(child.get_members()):
+        members = np.empty(child.get_members().shape, dtype=object)
+        raveled_members = members.ravel()
+        raveled_parents = parent.get_members().ravel()
+        for i, child_member in enumerate(child.get_members().ravel()):
             # Find the member of parent group that is parent to this child member
-            parent_member = next(filter(lambda p: p.is_parent_to(child_member), parent.get_members()))
-            members.append(NodePair(parent_member, child_member))
-        return members
+            parent_member = next(filter(lambda p: p.is_parent_to(child_member), raveled_parents))
+            raveled_members[i] = NodePair(parent_member, child_member)
+        return np.array(members)
 
-    def same_level_member_pairs(self) -> List['NodePair']:
+    def same_level_member_pairs(self) -> npt.NDArray['NodePair']:
         """
         Member initialization when a and b are not related. Creates a pair member for each pair of (member a, member b)
         where both member_a and member_b must be linked to the same parent member of a common parent of groups a and b.
@@ -131,15 +154,19 @@ class NodePair(Node, ABC):
         -------
         List of members, size dependent on relations to common parent
         """
-        members = list()
-        for a_member in self.a.get_members():
-            for b_member in self.b.get_members():
-                if 0 < len(a_member.get_children().intersection(b_member.get_children())):
-                    members.append(NodePair(a_member, b_member))
-        return members
+
+        unraveled_a = self.a.get_members().ravel()
+        unraveled_b = self.b.get_members().ravel()
+
+        semi_raveled = np.empty((len(unraveled_a), len(unraveled_b)), dtype=object)
+        for i, a_member in enumerate(unraveled_a):
+            for j, b_member in enumerate(unraveled_b):
+                semi_raveled[i, j] = NodePair(a_member, b_member)
+
+        return semi_raveled.reshape(self.a.get_members().shape + self.b.get_members().shape)
 
     @cache
-    def get_members(self) -> List[Node]:
+    def get_members(self) -> npt.NDArray[Node]:
         """
         Init the member list, varying strategies depending on relation of a and b.
         Returns
@@ -148,13 +175,12 @@ class NodePair(Node, ABC):
         and b corresponds to a member of the b group.
         """
         if len(self.a.get_members()) == 0 and len(self.b.get_members()) == 0:
-            return list()
+            return np.array(list())
 
         # Check if a and b has the same representation
         if self.a.representation() == self.b.representation():
-            # a and b have the tha same representation, create a pair member for each member of a mapped to the same
-            # element of b
-            return list(map(lambda m: NodePair(m[0], m[1]), zip(self.a.get_members(), self.b.get_members())))
+            # a and b have the same representation nodes, possibly different order
+            return self.a.get_members()
 
         # Check parent-child relationship
         if self.a.is_parent_to(self.b) or self.b.is_parent_to(self.a):
@@ -209,30 +235,13 @@ class NodePair(Node, ABC):
     def __str__(self) -> str:
         return '_'.join(map(str, self.representation()))
 
-    @cache
-    def map_to(self, other: Node) -> npt.NDArray[int]:
-        if other.representation() == self.representation():
-            return np.arange(len(self))
-
-        if self.is_parent_to(other):
-            raise ValueError('Mapping from parent to child is not applicable')
-
-        if not other.is_parent_to(self):
-            return ValueError('Mapping between unrelated is not applicable')
-
-        return np.array([
-            next(
-                j for j, other_member in enumerate(other.get_members()) if other_member.is_parent_to(member)
-            ) for member in self.get_members()
-        ])
-
 
 class AtomicNode(Node, ABC):
     """
         Class for a single instance node.
     """
 
-    def __init__(self, name: Any, members: List['AtomicNode'], parents: Set['AtomicNode']):
+    def __init__(self, name: Any, members: npt.NDArray['AtomicNode'], parents: Set['AtomicNode']):
         """
 
         Parameters
@@ -245,13 +254,13 @@ class AtomicNode(Node, ABC):
         self.parents = set(parents)
         self.children = set()
 
-    def get_key(self) -> Any:
-        return self.name
+    def get_key(self) -> Tuple[Any, ...]:
+        return self.name,
 
     def __str__(self):
         return self.name
 
-    def get_members(self) -> List[Node]:
+    def get_members(self) -> npt.NDArray[Node]:
         return self.members
 
     def add_child(self, child: 'AtomicNode'):
@@ -272,13 +281,7 @@ class AtomicNode(Node, ABC):
     def reduced_repr(self) -> 'Node':
         return self
 
-    def map_to(self, other: Node) -> npt.NDArray[int]:
-        if self.is_parent_to(other):
-            raise ValueError('Mapping from parent to child is not applicable')
-
-        return NodePair(self, other).map_to(other)
-
 
 class CellNode(AtomicNode):
     def __init__(self, name: Any, parents: Set[AtomicNode]):
-        super().__init__(name, list(), parents)
+        super().__init__(name, np.array(list()), parents)

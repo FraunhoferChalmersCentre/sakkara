@@ -74,13 +74,10 @@ class CompositeComponent(ModelComponent, ABC):
         self.node = NodePair(self.a.node, self.b.node).reduced_repr()
 
     def get_mapped_variable(self, component: ModelComponent) -> at.TensorVariable:
-        if len(component.node) == 1:
+        if component.node.get_members().shape == (1,):
             return component.variable
         mapping = self.node.map_to(component.node)
-        if mapping is None:
-            return component.variable
-        else:
-            return component.variable[mapping]
+        return component.variable[mapping]
 
     def build_variable(self) -> None:
         a_var = self.get_mapped_variable(self.a)
