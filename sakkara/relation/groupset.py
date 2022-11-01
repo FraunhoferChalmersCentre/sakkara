@@ -4,7 +4,8 @@ from typing import Dict, List, Set, Any
 import numpy as np
 import pandas as pd
 
-from sakkara.relation.node import AtomicNode, CellNode
+from sakkara.relation.cellnode import CellNode
+from sakkara.relation.atomicnode import AtomicNode
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,14 @@ def get_member_parents(child_key: str, df: pd.DataFrame, parents: Set[AtomicNode
     return member_parents
 
 
+def get_twin_df(df):
+    groups = list(df.columns)
+    counts_df = pd.DataFrame(index=groups, columns=groups, data=False)
+    for i in range(len(groups)):
+        counts_df.loc[groups[i], groups[:i] + groups[i + 1:]] = df.groupby(groups[i]).nunique().max() == 1
+    return np.logical_and(counts_df, counts_df.T)
+
+
 def create_column_node(column: str, parent_names: List[str], df: pd.DataFrame,
                        groups: Dict[Any, AtomicNode]) -> AtomicNode:
     """
@@ -126,5 +135,10 @@ def init(df: pd.DataFrame) -> GroupSet:
     parent_df = get_parent_df(df)
     for i, (group_name, is_parent) in enumerate(parent_df.iterrows()):
         groups[str(group_name)] = create_column_node(str(group_name), list(is_parent.index[is_parent]), tmp_df, groups)
+
+    twin_df = get_twin_df(df)
+    for group_name, is_twin in twin_df.iterrows():
+        for name, twin_i in is_twin[is_twin].items():
+            groups[str(group_name)].add_twin(groups[str(name)])
 
     return GroupSet(groups)

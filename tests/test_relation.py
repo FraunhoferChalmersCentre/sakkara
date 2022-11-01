@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from sakkara.relation import groupset
-from sakkara.relation.node import NodePair, Node
+from sakkara.relation.node import Node
+from sakkara.relation.nodepair import NodePair
 
 """
 Testing relations is performed on the following graph (parents in top):
@@ -155,8 +156,8 @@ def test_pairing(gs, graph_dict):
         self_pair = NodePair(gs[k], gs[k])
         assert not self_pair.is_parent_to(gs[k])
         assert not gs[k].is_parent_to(self_pair)
-        assert self_pair.representation() == {gs[k]}
-        assert self_pair.reduced_repr() == gs[k]
+        assert self_pair.representation().get_nodes() == {gs[k]}
+        # assert self_pair.reduced_repr() == gs[k]
 
         for child in v['children']:
             for pair in (NodePair(gs[k], gs[child]), NodePair(gs[child], gs[k])):
@@ -164,8 +165,8 @@ def test_pairing(gs, graph_dict):
                 assert not gs[child].is_parent_to(pair)
                 assert not pair.is_parent_to(gs[child])
                 assert not pair.is_parent_to(gs[k])
-                assert pair.representation() == {gs[child]}
-                assert pair.reduced_repr() == gs[child]
+                assert pair.representation().get_nodes() == {gs[child]}
+                # assert pair.reduced_repr() == gs[child]
 
         for parent in v['parents']:
             for pair in (NodePair(gs[k], gs[parent]), NodePair(gs[parent], gs[k])):
@@ -173,8 +174,8 @@ def test_pairing(gs, graph_dict):
                 assert gs[parent].is_parent_to(pair)
                 assert not pair.is_parent_to(gs[parent])
                 assert not pair.is_parent_to(gs[k])
-                assert pair.representation() == {gs[k]}
-                assert pair.reduced_repr() == gs[k]
+                assert pair.representation().get_nodes() == {gs[k]}
+                # assert pair.reduced_repr() == gs[k]
 
         for other in v['neither']:
             pair = NodePair(gs[k], gs[other])
@@ -182,16 +183,16 @@ def test_pairing(gs, graph_dict):
             assert gs[other].is_parent_to(pair)
             assert not pair.is_parent_to(gs[k])
             assert not pair.is_parent_to(gs[other])
-            assert pair.representation() == {gs[k], gs[other]}
-            assert pair.reduced_repr() == pair
+            assert pair.representation().get_nodes() == {gs[k], gs[other]}
+            # assert pair.reduced_repr() == pair
 
             pair = NodePair(gs[other], gs[k])
             assert gs[k].is_parent_to(pair)
             assert gs[other].is_parent_to(pair)
             assert not pair.is_parent_to(gs[k])
             assert not pair.is_parent_to(gs[other])
-            assert pair.representation() == {gs[other], gs[k]}
-            assert pair.reduced_repr() == pair
+            assert pair.representation().get_nodes() == {gs[other], gs[k]}
+            # assert pair.reduced_repr() == pair
 
 
 def test_mapping(gs, graph_dict):

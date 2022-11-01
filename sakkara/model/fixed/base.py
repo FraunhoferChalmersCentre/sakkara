@@ -5,7 +5,7 @@ import numpy as np
 
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.node import NodePair
+from sakkara.relation.nodepair import NodePair
 
 
 class FixedComponent(MathOpBase):

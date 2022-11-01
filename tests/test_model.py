@@ -11,13 +11,14 @@ from sakkara.relation.groupset import init, GroupSet
 @pytest.fixture
 def df():
     return pd.DataFrame(
-        {
-            'global': 'global',
-            'building': np.repeat(list('ab'), 10),
-            'sensor': np.repeat(list('stuv'), 5),
-            'time': np.tile(pd.date_range("2018-01-01 00:00:00", tz='utc', periods=5, freq="H"), 4),
-            'obs': np.arange(20)
-        })
+            {
+                'global': 'global',
+                'building': np.repeat(list('ab'), 10),
+                'sensor': np.repeat(list('stuv'), 5),
+                'time': np.tile(pd.date_range("2018-01-01 00:00:00", tz='utc', periods=5, freq="H"), 4),
+                'time_2': pd.date_range("2020-01-01 00:00:00", tz='utc', periods=20, freq="H"),
+                'obs': np.arange(20)
+            })
 
 
 @pytest.fixture
@@ -94,3 +95,80 @@ def test_tuple_column(df, groupset):
     sensor_codes, _ = pd.factorize(df['sensor'])
     assert pm.draw(rv_obs.variable) == pytest.approx(
         4 * np.arange(5)[time_codes] + 4 * (np.arange(4) * 10)[sensor_codes])
+
+
+def test_one_to_one_cols(groupset):
+    x = RandomVariable(pm.Normal, mu=RandomVariable(pm.Normal, columns='obs'), columns='obs', name='x')
+    y = RandomVariable(pm.Normal, mu=RandomVariable(pm.Normal, columns='time_2'), columns='obs', name='y')
+    ll = RandomVariable(pm.Normal, mu=RandomVariable(pm.Normal, columns='time_2'), observed=np.random.randn(20),
+                      columns='obs', name='ll')
+
+    with pm.Model(coords=groupset.coords()):
+        x.build(groupset)
+        assert pm.draw(x.variable).shape == (20,)
+
+        y.build(groupset)
+        assert pm.draw(y.variable).shape == (20,)
+
+        ll.build(groupset)
+        assert pm.draw(ll.variable).shape == (20,)
+
+
+def test_reduction():
+    tdf = pd.DataFrame(
+        {
+            'global': 'global',
+            'a': np.array([0, 0, 0, 1, 1, 1]),
+            'b': np.array([2, 2, 3, 3, 3, 3]),
+            'c': np.array([0, 0, 1, 1, 1, 1]),
+            'd': np.array([0, 0, 0, 1, 2, 2]),
+            'e': np.array([4, 4, 4, 4, 5, 4]),
+            'f': np.array([6, 6, 6, 6, 0, 6]),
+            'obs': np.array([1, 2, 3, 4, 5, 6])
+        })
+
+    gs = init(tdf)
+
+    sigma = 1e-15
+    a = RandomVariable(pm.Normal, mu=np.ones((tdf['a'].nunique())), sigma=sigma, columns='a', name='dista')
+    b = RandomVariable(pm.Normal, mu=np.ones((tdf['b'].nunique())), sigma=sigma, columns='b', name='distb')
+    c = RandomVariable(pm.Normal, mu=np.ones((tdf['c'].nunique())), sigma=sigma, columns='c', name='distc')
+    d = RandomVariable(pm.Normal, mu=np.ones((tdf['d'].nunique())), sigma=sigma, columns='d', name='distd')
+    e = RandomVariable(pm.Normal, mu=np.ones((tdf['e'].nunique())), sigma=sigma, columns='e', name='diste')
+    f = RandomVariable(pm.Normal, mu=np.ones((tdf['f'].nunique())), sigma=sigma, columns='f', name='distf')
+
+    ab = RandomVariable(pm.Normal, mu=a + b, sigma=sigma, name='ab')
+    ac = RandomVariable(pm.Normal, mu=a + c, sigma=sigma, name='ac')
+    ef = RandomVariable(pm.Normal, mu=e + f, sigma=sigma, name='ef')
+    cd = RandomVariable(pm.Normal, mu=c + d, sigma=sigma, name='cd')
+    dd = RandomVariable(pm.Normal, mu=d + d, sigma=sigma, name='dd')
+
+    abcd = RandomVariable(pm.Normal, mu=ab + cd, sigma=sigma, name='abcd')
+    abac = RandomVariable(pm.Normal, mu=a + b + a + c, sigma=sigma, name='abac')
+
+    abce = RandomVariable(pm.Normal, mu=a + b + c + e, sigma=sigma, name='abce')
+    acef = RandomVariable(pm.Normal, mu=a + c + e + f, sigma=sigma, name='acef')
+    acef2 = RandomVariable(pm.Normal, mu=ac + ef, sigma=sigma, name='acef2')
+    abceacef = RandomVariable(pm.Normal, mu=abce + acef, sigma=sigma, name='abceacef')
+
+    with pm.Model(coords=gs.coords()):
+        dd.build(gs)
+        assert pm.draw(dd.variable).shape == (3,)
+
+        acef.build(gs)
+        assert pm.draw(acef.variable).shape == (2, 2, 2)
+        assert pm.draw(acef.variable) == pytest.approx(4 * np.ones((2, 2, 2)))
+        acef2.build(gs)
+        assert pm.draw(acef2.variable).shape == (2, 2, 2)
+        assert pm.draw(acef2.variable) == pytest.approx(4 * np.ones((2, 2, 2)))
+        abce.build(gs)
+        assert pm.draw(abce.variable).shape == (2, 2, 2)
+        abceacef.build(gs)
+        assert pm.draw(abceacef.variable).shape == (2, 2, 2)
+
+        abac.build(gs)
+        assert pm.draw(abac.variable).shape == (2, 2)
+
+        abcd.build(gs)
+        sample = pm.draw(abcd.variable)
+        assert sample.shape == (3, 2) or sample.shape == (2, 3)

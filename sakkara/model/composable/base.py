@@ -8,7 +8,7 @@ from aesara import tensor as at
 from sakkara.model.base import ModelComponent
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.node import NodePair
+from sakkara.relation.nodepair import NodePair
 
 S = TypeVar('S', bound=Any)
 T = TypeVar('T', bound=ModelComponent)

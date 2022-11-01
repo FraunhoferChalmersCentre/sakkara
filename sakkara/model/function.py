@@ -6,7 +6,7 @@ from typing import Callable, Any, Set, Optional
 import aesara.tensor as at
 
 from sakkara.model.base import ModelComponent
-from sakkara.relation.node import NodePair
+from sakkara.relation.nodepair import NodePair
 from sakkara.relation.groupset import GroupSet
 
 
