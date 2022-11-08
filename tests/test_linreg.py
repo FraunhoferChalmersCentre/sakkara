@@ -5,9 +5,8 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model.composite import CompositeComponent
-from sakkara.model.utils import build, Likelihood, data_components
-from sakkara.model.components import Distribution, FixedComponent
+from sakkara.model import build, FunctionComponent, RandomVariable, SeriesComponent, FixedComponent, Likelihood, \
+    data_components
 
 
 @pytest.fixture
@@ -45,58 +44,57 @@ def df():
 
 @pytest.fixture
 def likelihood(df):
-    coeff = Distribution(pm.Normal,
-                         name='outdoor_temperature',
-                         columns='building',
-                         mu=Distribution(
-                             pm.Normal
-                         ),
-                         sigma=Distribution(
-                             pm.Exponential,
-                             lam=1000
-                         )
-                         )
-    intercept = Distribution(pm.Normal,
-                             name='heating_power',
-                             columns='room',
-                             mu=Distribution(
-                                 pm.Normal,
-                                 columns='building',
-                                 mu=Distribution(pm.Normal),
-                                 sigma=Distribution(pm.Exponential, lam=10)
-                             ),
-                             sigma=Distribution(pm.Exponential, lam=1000)
-                             )
+    coeff = RandomVariable(pm.Normal,
+                           name='outdoor_temperature',
+                           columns='building',
+                           mu=RandomVariable(
+                               pm.Normal
+                           ),
+                           sigma=RandomVariable(
+                               pm.Exponential,
+                               lam=1000
+                           )
+                           )
+    intercept = RandomVariable(pm.Normal,
+                               name='heating_power',
+                               columns='room',
+                               mu=RandomVariable(
+                                   pm.Normal,
+                                   columns='building',
+                                   mu=RandomVariable(pm.Normal),
+                                   sigma=RandomVariable(pm.Exponential, lam=10)
+                               ),
+                               sigma=RandomVariable(pm.Exponential, lam=1000)
+                               )
 
     data = data_components(df)
 
     likelihood = Likelihood(pm.Normal, mu=coeff * data['outdoor_temperature'] + intercept,
-                            sigma=Distribution(pm.Exponential, lam=1000),
-                            data=data['y'])
+                            sigma=RandomVariable(pm.Exponential, lam=1000),
+                            obs_data=data['y'])
     return likelihood
 
 
 def test_build_linreg_model(df, likelihood):
     assert isinstance(likelihood, Likelihood)
 
-    assert isinstance(likelihood['mu'], CompositeComponent)
+    assert isinstance(likelihood['mu'], FunctionComponent)
 
-    assert isinstance(likelihood['mu'].a, CompositeComponent)
+    assert isinstance(likelihood['mu'].args[0], FunctionComponent)
 
-    assert isinstance(likelihood['mu'].a.a, Distribution)
-    assert isinstance(likelihood['mu'].a.a['mu'], Distribution)
-    assert isinstance(likelihood['mu'].a.a['sigma'], Distribution)
-    assert isinstance(likelihood['mu'].a.a['sigma']['lam'], FixedComponent)
+    assert isinstance(likelihood['mu'].args[0].args[0], RandomVariable)
+    assert isinstance(likelihood['mu'].args[0].args[0]['mu'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[0].args[0]['sigma'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[0].args[0]['sigma']['lam'], FixedComponent)
 
-    assert isinstance(likelihood['mu'].a.b, Distribution)
-    assert isinstance(likelihood['mu'].a.b['value'], FixedComponent)
+    assert isinstance(likelihood['mu'].args[0].args[1], SeriesComponent)
 
-    assert isinstance(likelihood['mu'].b, Distribution)
-    assert isinstance(likelihood['mu'].b['mu'], Distribution)
-    assert isinstance(likelihood['mu'].b['sigma'], Distribution)
-    assert isinstance(likelihood['mu'].b['mu']['mu'], Distribution)
-    assert isinstance(likelihood['mu'].b['mu']['sigma'], Distribution)
-    assert isinstance(likelihood['mu'].b['mu']['sigma']['lam'], FixedComponent)
+    assert isinstance(likelihood['mu'].args[1], RandomVariable)
+    assert isinstance(likelihood['mu'].args[1]['mu'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[1]['sigma'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[1]['mu']['mu'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[1]['mu']['sigma'], RandomVariable)
+    assert isinstance(likelihood['mu'].args[1]['mu']['sigma']['lam'], FixedComponent)
 
     built_model = build(df, likelihood)
     assert isinstance(built_model, pm.Model)
@@ -104,18 +102,18 @@ def test_build_linreg_model(df, likelihood):
     assert pm.draw(likelihood.variable).shape == (16,)
 
     assert pm.draw(likelihood['mu'].variable).shape == (16,)
-    assert pm.draw(likelihood['mu'].a.variable).shape == (16,)
-    assert pm.draw(likelihood['mu'].a.b.variable).shape == (16,)
-    assert pm.draw(likelihood['mu'].a.a.variable).shape == (2,)
-    assert pm.draw(likelihood['mu'].a.a['mu'].variable).shape == ()
-    assert pm.draw(likelihood['mu'].a.a['sigma'].variable).shape == ()
-    assert pm.draw(likelihood['mu'].b['mu'].variable).shape == (2,)
-    assert pm.draw(likelihood['mu'].b['sigma'].variable).shape == ()
-    assert pm.draw(likelihood['mu'].b.variable).shape == (4,)
-    assert pm.draw(likelihood['mu'].b['mu']['mu'].variable).shape == ()
-    assert pm.draw(likelihood['mu'].b['mu']['sigma'].variable).shape == ()
+    assert pm.draw(likelihood['mu'].args[0].variable).shape == (16,)
+    assert likelihood['mu'].args[0].args[1].variable.shape == (16,)
+    assert pm.draw(likelihood['mu'].args[0].args[0].variable).shape == (2,)
+    assert pm.draw(likelihood['mu'].args[0].args[0]['mu'].variable).shape == (1,)
+    assert pm.draw(likelihood['mu'].args[0].args[0]['sigma'].variable).shape == (1,)
+    assert pm.draw(likelihood['mu'].args[1]['mu'].variable).shape == (2,)
+    assert pm.draw(likelihood['mu'].args[1]['sigma'].variable).shape == (1,)
+    assert pm.draw(likelihood['mu'].args[1].variable).shape == (4,)
+    assert pm.draw(likelihood['mu'].args[1]['mu']['mu'].variable).shape == (1,)
+    assert pm.draw(likelihood['mu'].args[1]['mu']['sigma'].variable).shape == (1,)
 
-    assert pm.draw(likelihood['sigma'].variable).shape == ()
+    assert pm.draw(likelihood['sigma'].variable).shape == (1,)
 
 
 def test_rebuild_model(df, likelihood):
@@ -132,14 +130,14 @@ def test_sampling(df, likelihood):
         idata = pm.fit(50000, method='advi', random_seed=1000).sample(1000, random_seed=1000)
 
     result = az.summary(idata)
-    assert pytest.approx(result.loc['mu_outdoor_temperature', 'mean'], abs=5e-2) == .7
+    assert pytest.approx(result.loc['mu_outdoor_temperature[global]', 'mean'], abs=5e-2) == .7
     assert pytest.approx(result.loc['outdoor_temperature[a]', 'mean']) == 1.
     assert pytest.approx(result.loc['outdoor_temperature[b]', 'mean']) == .4
-    assert pytest.approx(result.loc['mu_mu_heating_power', 'mean'], abs=5e-2) == .7
+    assert pytest.approx(result.loc['mu_mu_heating_power[global]', 'mean'], abs=5e-2) == .7
     assert pytest.approx(result.loc['mu_heating_power[a]', 'mean'], abs=5e-2) == .9
     assert pytest.approx(result.loc['mu_heating_power[b]', 'mean'], abs=5e-2) == .5
     assert pytest.approx(result.loc['heating_power[a1]', 'mean']) == 1.
     assert pytest.approx(result.loc['heating_power[a2]', 'mean']) == .8
     assert pytest.approx(result.loc['heating_power[b1]', 'mean']) == .6
     assert pytest.approx(result.loc['heating_power[b2]', 'mean']) == .4
-    assert pytest.approx(result.loc['sigma_mu_heating_power', 'mean'], abs=5e-2) == .2
+    assert pytest.approx(result.loc['sigma_mu_heating_power[global]', 'mean'], abs=5e-2) == .2

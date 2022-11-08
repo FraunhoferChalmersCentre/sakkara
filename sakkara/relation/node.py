@@ -97,6 +97,19 @@ class Node:
         return self.get_mapping(other, np.vectorize(
             lambda sm, om: len(om.representation().intersection(sm.get_parents()))))
 
+    def member_subset(self, subset: npt.NDArray['Node']) -> Tuple[npt.NDArray[int], ...]:
+        vec_repr = np.vectorize(lambda a, b: a.representation() == b.representation())
+        representation_match = np.vectorize(lambda node: np.any(vec_repr(node, subset)))
+
+        vec_p2c = np.vectorize(lambda parent, child: parent.is_parent_to(child))
+        parent_match = np.vectorize(lambda node: np.any(vec_p2c(subset, node)))
+
+        member_node_match = np.vectorize(lambda member: np.logical_or(representation_match(member), parent_match(member)))
+
+        raveled_member_indices = np.argwhere(member_node_match(self.get_members().ravel())).squeeze()
+
+        return np.unravel_index(raveled_member_indices, shape=self.get_members().shape)
+
     @abc.abstractmethod
     def reduced_repr(self) -> 'Node':
         raise NotImplementedError

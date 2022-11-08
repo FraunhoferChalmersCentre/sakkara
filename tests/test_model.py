@@ -4,7 +4,7 @@ import pymc as pm
 import pytest
 from scipy.stats.distributions import norm, binom
 
-from sakkara.model.components import Distribution
+from sakkara.model import FixedComponent, RandomVariable
 from sakkara.relation.groupset import init, GroupSet
 
 
@@ -26,15 +26,15 @@ def groupset(df) -> GroupSet:
 
 
 def test_retrieve_groups():
-    hv = Distribution(pm.Normal, columns='room',
-                      mu=Distribution(pm.Normal, columns='building', mu=Distribution(pm.Normal)))
+    hv = RandomVariable(pm.Normal, columns='room',
+                        mu=RandomVariable(pm.Normal, columns='building', mu=RandomVariable(pm.Normal)))
     assert all(c in hv.retrieve_columns() for c in ['room', 'building', 'global'])
 
 
 def test_build_variables(groupset):
-    rv_global = Distribution(pm.Normal, mu=0)
-    rv_building = Distribution(pm.Normal, columns='building', mu=rv_global)
-    rv_sensor = Distribution(pm.Normal, columns='sensor', mu=rv_building, name='rv')
+    rv_global = RandomVariable(pm.Normal, mu=0)
+    rv_building = RandomVariable(pm.Normal, columns='building', mu=rv_global)
+    rv_sensor = RandomVariable(pm.Normal, columns='sensor', mu=rv_building, name='rv')
 
     sensor_building_sum = - rv_building + 1 / rv_sensor
     N_DRAWS = 1000
@@ -46,11 +46,11 @@ def test_build_variables(groupset):
         assert sb.shape == (N_DRAWS, 4)
         assert s.shape == (N_DRAWS, 4)
         assert b.shape == (N_DRAWS, 2)
-        assert g.shape == (N_DRAWS,)
+        assert g.shape == (N_DRAWS, 1)
 
         p = norm.cdf(1) - norm.cdf(-1)
         abs_error = binom.ppf(.9, N_DRAWS, p) - binom.mean(N_DRAWS, p)
-        assert sum(np.abs(b.mean(axis=1) - g) <= 1 / np.sqrt(2)) == pytest.approx(p * N_DRAWS, abs=abs_error)
+        assert sum(np.abs(b.mean(axis=1) - g.squeeze()) <= 1 / np.sqrt(2)) == pytest.approx(p * N_DRAWS, abs=abs_error)
 
         assert sum(np.abs(s[:, :2].mean(axis=1) - b[:, 0]) <= 1 / np.sqrt(2)) == pytest.approx(p * N_DRAWS,
                                                                                                abs=abs_error)
@@ -62,17 +62,22 @@ def test_build_variables(groupset):
 
 def test_tuple_column(df, groupset):
     sigma = 1e-15
-    rv_time = Distribution(pm.Normal, mu=np.arange(5), sigma=sigma, columns='time')
-    rv_sensor = Distribution(pm.Normal, mu=np.arange(4) * 10, sigma=sigma, columns='sensor')
-    rv_combined = Distribution(pm.Normal, mu=rv_time + rv_sensor, sigma=sigma, name='combined')
+    rv_time = RandomVariable(pm.Normal, mu=FixedComponent(np.arange(5), columns='time'), sigma=sigma, columns='time')
+    rv_sensor = RandomVariable(pm.Normal, mu=FixedComponent(np.arange(4) * 10, columns='sensor'), sigma=sigma,
+                               columns='sensor')
+    rv_combined = RandomVariable(pm.Normal, mu=rv_time + rv_sensor, sigma=sigma, name='combined')
 
-    rv_tuple_col = Distribution(pm.Normal, mu=np.sum(np.meshgrid(np.arange(5), np.arange(4) * 10), axis=0), sigma=sigma,
-                                columns=('time', 'sensor'), name='tuple')
+    rv_tuple_col = RandomVariable(pm.Normal,
+                                  mu=FixedComponent(np.sum(np.meshgrid(np.arange(5), np.arange(4) * 10), axis=0),
+                                                    columns=('time', 'sensor')),
+                                  sigma=sigma,
+                                  columns=('time', 'sensor'),
+                                  name='tuple')
 
     rv_sum_1 = rv_tuple_col + rv_combined
     rv_sum_2 = rv_combined + rv_tuple_col
 
-    rv_obs = rv_sum_1 + rv_sum_2 + Distribution(pm.Normal, sigma=sigma, columns='obs', name='observed')
+    rv_obs = rv_sum_1 + rv_sum_2 + RandomVariable(pm.Normal, sigma=sigma, columns='obs', name='observed')
     with pm.Model(coords=groupset.coords()):
         rv_obs.build(groupset)
 
