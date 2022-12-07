@@ -29,7 +29,7 @@ class AtomicNode(Node, ABC):
         return self.name,
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def get_members(self) -> npt.NDArray[Node]:
         return self.members
@@ -62,7 +62,7 @@ class AtomicNode(Node, ABC):
         return self in other.get_twins()
 
     def __lt__(self, other) -> bool:
-        return hash(self) < hash(other)
+        return str(self) < str(other)
 
     def __len__(self) -> int:
         return 1

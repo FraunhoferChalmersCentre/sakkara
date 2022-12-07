@@ -62,7 +62,7 @@ class Representation:
     def __iter__(self):
         if self.updated:
             self.reduce()
-        return iter(self.nodes)
+        return iter(sorted(self.nodes))
 
     def __str__(self) -> str:
         if self.updated:

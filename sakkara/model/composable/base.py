@@ -55,7 +55,7 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
     def build_group_nodes(self, groupset: GroupSet) -> None:
         self.column_node = groupset[self.columns[0]]
         for column in self.columns[1:]:
-            self.column_node = NodePair(groupset[column], self.column_node).reduced_repr()
+            self.column_node = NodePair(self.column_node, groupset[column]).reduced_repr()
 
         self.components_node = next(iter(self.components.values())).node if 0 < len(self.components) else groupset[
             'global']
