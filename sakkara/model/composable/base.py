@@ -1,5 +1,6 @@
 import abc
 from abc import ABC
+from functools import cache
 from typing import Generic, Optional, Union, Tuple, Collection, Any, Dict, Set, TypeVar
 
 import numpy as np
@@ -82,6 +83,7 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
         for c in self.components.values():
             c.clear()
 
+    @cache
     def retrieve_columns(self) -> Set[str]:
         columns = set()
         for k, v in self.components.items():

@@ -10,7 +10,6 @@ from sakkara.relation.groupset import init
 
 
 def build(df: pd.DataFrame, likelihood: ModelComponent):
-    likelihood.clear()
 
     tmp_df = df.copy()
     tmp_df.loc[:, 'global'] = 'global'
