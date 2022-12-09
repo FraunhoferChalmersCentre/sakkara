@@ -1,6 +1,7 @@
 import abc
+import time
 from functools import cache
-from typing import Set, Any, Tuple, Callable
+from typing import Set, Any, Tuple, Callable, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -74,10 +75,10 @@ class Node:
             raveled_mapping[raveled_self_member_index] = raveled_index
 
         return tuple(map(lambda x: x.reshape(self.get_members().shape).tolist(),
-                        np.unravel_index(raveled_mapping, other.get_members().shape)))
+                         np.unravel_index(raveled_mapping, other.get_members().shape)))
 
     # @cache
-    def map_to(self, other: 'Node') -> Tuple[npt.NDArray[int], ...]:
+    def map_to(self, other: 'Node') -> Union[Tuple[npt.NDArray[int], ...], slice]:
         """
         Get a mapping from other group to this group.
 
@@ -89,6 +90,8 @@ class Node:
         -------
         List of the member nodes of other, in an order to be mapped to the correct member of this group (or a pair group)
         """
+        if self == other:
+            return slice(None)
         if self.representation() == other.representation() or other.is_twin_to(self) or self.is_twin_to(other):
             return self.get_mapping(other,
                                     np.vectorize(
@@ -111,7 +114,8 @@ class Node:
         vec_p2c = np.vectorize(lambda parent, child: parent.is_parent_to(child))
         parent_match = np.vectorize(lambda node: np.any(vec_p2c(subset, node)))
 
-        member_node_match = np.vectorize(lambda member: np.logical_or(representation_match(member), parent_match(member)))
+        member_node_match = np.vectorize(
+            lambda member: np.logical_or(representation_match(member), parent_match(member)))
 
         raveled_member_indices = np.argwhere(member_node_match(self.get_members().ravel())).squeeze()
 
