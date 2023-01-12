@@ -93,7 +93,13 @@ class FunctionComponent(ModelComponent, ABC):
         return self.math_op(operator.add, self, other)
 
     def __sub__(self, other: Any) -> ModelComponent:
-        return self.math_op(operator.add, self, other)
+        return self.math_op(operator.sub, self, other)
+
+    def __radd__(self, other):
+        return self.math_op(operator.add, other, self)
+
+    def __rsub__(self, other):
+        return self.math_op(operator.sub, other, self)
 
     def __mul__(self, other: Any) -> ModelComponent:
         return self.math_op(operator.mul, self, other)
