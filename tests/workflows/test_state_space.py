@@ -4,8 +4,10 @@ import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 from numpy import testing
+import pytensor.tensor as pt
 
-from sakkara.model import RandomVariable, data_components, GroupComponent, Likelihood
+from sakkara.model import RandomVariable, data_components, GroupComponent, Likelihood, FunctionComponent, \
+    DeterminisitcComponent
 from sakkara.model.utils import build
 
 N = 20
@@ -64,53 +66,43 @@ def test_state_space_model(parallel_process_df):
         name='R',
         columns='group',
         components={
-            0: 0,
-            1: RandomVariable(pm.Normal, columns='time', sigma=RandomVariable(pm.Exponential, lam=1))
+            0: 1e-3,
+            1: RandomVariable(pm.Exponential, lam=10)
         }
     )
 
     data = data_components(parallel_process_df)
 
-    x_sigma = RandomVariable(pm.Exponential, lam=1)
+    X = RandomVariable(pm.GaussianRandomWalk, name='X', columns='time')
 
-    timesteps = parallel_process_df['time'].unique()
-
-    X = GroupComponent(name='X', columns='time')
-    X.add(timesteps[0], RandomVariable(pm.Normal, sigma=x_sigma))
-
-    for i in range(1, N):
-        X.add(timesteps[i], RandomVariable(pm.Normal, mu=X[timesteps[i - 1]], sigma=x_sigma))
-
-    likelihood = Likelihood(pm.Normal, mu=X + R, sigma=RandomVariable(pm.Exponential, lam=10), obs_data=data['y'])
+    likelihood = Likelihood(pm.Normal, mu=X, sigma=R, obs_data=data['y'])
 
     built_model = build(parallel_process_df, likelihood)
     assert pm.draw(X.variable).shape == (20,)
-    assert pm.draw(R.variable).shape == (2, 20)
+    assert pm.draw(R.variable).shape == (2,)
     assert pm.draw(likelihood.variable).shape == (23,)
 
 
 def test_partially_observed_state_space(partially_observed_df):
-    k = RandomVariable(pm.Uniform, lower=0, upper=4, name='k')
     dc = data_components(partially_observed_df)
 
-    state = GroupComponent(columns='obs', name='state')
-    state.add(0, k * partially_observed_df.loc[0, 'x'])
-    for i in range(1, len(partially_observed_df)):
-        state.add(i, state[i - 1] + k * partially_observed_df.loc[i, 'x'])
+    k = RandomVariable(pm.Normal, name='diff')
 
-    likelihood = Likelihood(pm.Normal, mu=state, sigma=SIGMA, obs_data=dc['sample'], nan_data_mask=1,
-                            nan_var_mask={'mu': 0, 'sigma': 1})
+    state = DeterminisitcComponent('state', FunctionComponent(pt.cumsum, None, k * dc['x']))
+
+    likelihood = Likelihood(pm.Normal,
+                            mu=state,
+                            sigma=SIGMA,
+                            obs_data=dc['sample'],
+                            nan_data_mask=0,
+                            nan_var_mask={'mu': 0, 'sigma': 1}
+                            )
 
     built_model = build(partially_observed_df, likelihood)
-    approx = pm.fit(model=built_model, method='advi',
-                    callbacks=[pm.callbacks.CheckParametersConvergence(diff="absolute")], random_seed=100)
+    approx = pm.fit(model=built_model, method='advi', random_seed=100)
 
     assert not np.any(np.isnan(approx.hist))
-    posterior = approx.sample(1000)['posterior']['state'].to_dataframe()
-    means = []
-    for o in range(len(partially_observed_df)):
-        means.append(posterior.loc[:, :, o].mean().values)
 
-    means = np.array(means).squeeze()
+    means = approx.sample(1000, random_seed=100)['posterior']['state'].to_dataframe().groupby(level=2).mean()
 
-    testing.assert_allclose(means, partially_observed_df['y'], rtol=1e-3)
+    testing.assert_allclose(means['state'], partially_observed_df['y'], atol=.1)

@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Any, Dict, Union, Tuple, Optional, Collection
 
-import aesara.tensor as at
+import pytensor.tensor as at
 
 from sakkara.model.base import ModelComponent
 from sakkara.model.composable.base import Composable, T

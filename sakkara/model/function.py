@@ -3,7 +3,7 @@ import operator
 from abc import ABC
 from typing import Callable, Any, Set, Optional
 
-import aesara.tensor as at
+import pytensor.tensor as at
 
 from sakkara.model.base import ModelComponent
 from sakkara.relation.nodepair import NodePair

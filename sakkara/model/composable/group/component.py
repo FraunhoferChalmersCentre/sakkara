@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Tuple, Union, Optional, Collection, Any, Dict
 
 import pymc as pm
-from aesara import tensor as at
+from pytensor import tensor as at
 from numpy import typing as npt
 
 from sakkara.model.base import ModelComponent

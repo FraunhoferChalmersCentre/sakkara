@@ -207,8 +207,11 @@ def test_mapping(gs, graph_dict):
             parent.map_to(child)
 
     def test_same_representation(a: Node, b: Node):
-        for i, mapping in enumerate(a.map_to(b)):
-            testing.assert_array_equal(mapping, np.arange(a.get_members().shape[i]))
+        if a == b:
+            assert a.map_to(b) == slice(None)
+        else:
+            for i, mapping in enumerate(a.map_to(b)):
+                testing.assert_array_equal(mapping, np.arange(a.get_members().shape[i]))
 
     def test_restructured_representation(a: Node, b: Node):
         for i, mapping in enumerate(a.map_to(b)):

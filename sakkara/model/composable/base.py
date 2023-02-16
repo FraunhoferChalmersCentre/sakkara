@@ -4,7 +4,7 @@ from functools import cache
 from typing import Generic, Optional, Union, Tuple, Collection, Any, Dict, Set, TypeVar
 
 import numpy as np
-from aesara import tensor as at
+from pytensor import tensor as at
 
 from sakkara.model.base import ModelComponent
 from sakkara.model.math_op import MathOpBase

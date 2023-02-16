@@ -85,9 +85,10 @@ def test_tuple_column(df, groupset):
     assert rv_combined.node.representation() == rv_tuple_col.node.representation()
     assert pm.draw(rv_time.variable).shape == (5,)
     assert pm.draw(rv_sensor.variable).shape == (4,)
-    assert pm.draw(rv_tuple_col.variable).shape == (4, 5)
+    # 'sensor' dim put before 'time' due to alphabetical order
+    assert pm.draw(rv_tuple_col.variable).shape == (5, 4)
     assert pm.draw(rv_combined.variable).shape == (5, 4)
-    assert pm.draw(rv_sum_1.variable).shape == (4, 5)
+    assert pm.draw(rv_sum_1.variable).shape == (5, 4)
     assert pm.draw(rv_sum_2.variable).shape == (5, 4)
     assert pm.draw(rv_obs.variable).shape == (20,)
 
