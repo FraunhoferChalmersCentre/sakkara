@@ -1,6 +1,7 @@
 import abc
 import operator
 from abc import ABC
+from itertools import chain
 from typing import Callable, Any, Set, Optional
 
 import pytensor.tensor as pt
@@ -15,29 +16,28 @@ class FunctionComponent(ModelComponent, ABC):
     Class for intermediate states of mathematical operations between components
     """
 
-    def __init__(self, fct: Callable[[Any, ...], Any], name: str = None, *args: ModelComponent):
+    def __init__(self, fct: Callable[[Any, ...], Any], *args: ModelComponent, **kwargs: ModelComponent):
         super().__init__()
-        self.name = name
         self.args = args
+        self.kwargs = kwargs
         self.fct = fct
 
     def get_name(self) -> Optional[str]:
-        if self.name is not None:
-            return self.name
-
-        name = ''
         for comp in self.args:
             comp_name = comp.get_name()
             if comp_name is None:
                 return None
-            name += comp_name
 
-        return name
+        return self.fct.__name__
 
     def set_name(self, name: str) -> None:
         for i, comp in enumerate(self.args):
             if comp.get_name() is None:
-                comp.set_name(name + '_arg' + str(i))
+                comp.set_name(name + '_' + self.fct.__name__ + '_arg' + str(i))
+
+        for k, comp in self.kwargs.items():
+            if comp.get_name() is None:
+                comp.set_name(name + '_' + self.fct.__name__ + '_' + k)
 
     def clear(self):
         self.variable = None
@@ -72,22 +72,22 @@ class FunctionComponent(ModelComponent, ABC):
             mapping = self.node.map_to(component.node)
             return component.variable[mapping]
 
-        mapped_vars = tuple(map(get_mapped_variable, self.args))
+        mapped_vars = tuple(map(get_mapped_variable, chain(self.args, self.kwargs.values())))
         self.variable = self.fct(*mapped_vars)
 
     def retrieve_groups(self) -> Set[str]:
-        group = self.args[0].retrieve_groups()
-        for component in self.args[1:]:
+        group = set()
+        for component in chain(self.args, self.kwargs.values()):
             group = group.union(component.retrieve_groups())
         return group
 
     @staticmethod
     def math_op(fct: Callable, left: Any, right: Any) -> ModelComponent:
         if isinstance(left, ModelComponent) and isinstance(right, ModelComponent):
-            return FunctionComponent(fct, None, left, right)
+            return FunctionComponent(fct, left, right)
         if isinstance(left, ModelComponent):
-            return FunctionComponent(lambda x: fct(x, right), None, left)
-        return FunctionComponent(lambda x: fct(left, x), None, right)
+            return FunctionComponent(lambda x: fct(x, right), left)
+        return FunctionComponent(lambda x: fct(left, x), right)
 
     def __add__(self, other: Any) -> ModelComponent:
         return self.math_op(operator.add, self, other)
@@ -114,4 +114,4 @@ class FunctionComponent(ModelComponent, ABC):
         return self.math_op(operator.truediv, other, self)
 
     def __neg__(self):
-        return FunctionComponent(operator.neg, None, self)
+        return FunctionComponent(operator.neg, self)

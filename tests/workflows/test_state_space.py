@@ -88,7 +88,7 @@ def test_partially_observed_state_space(partially_observed_df):
 
     k = DistributionComponent(pm.Normal, name='diff')
 
-    state = DeterministicComponent('state', FunctionComponent(pt.cumsum, None, k * dc['x']))
+    state = DeterministicComponent('state', FunctionComponent(pt.cumsum, k * dc['x']))
 
     likelihood = Likelihood(pm.Normal,
                             mu=state,

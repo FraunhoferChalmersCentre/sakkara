@@ -36,4 +36,4 @@ class MathOpBase(ModelComponent, ABC):
         return FunctionComponent.math_op(operator.truediv, other, self)
 
     def __neg__(self):
-        return FunctionComponent(operator.neg, None, self)
+        return FunctionComponent(operator.neg, self)
