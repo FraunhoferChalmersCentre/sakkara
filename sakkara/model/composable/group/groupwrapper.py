@@ -6,8 +6,20 @@ from sakkara.model.composable.hierarchical.wrapper import ComponentWrapper
 
 
 class GroupWrapper(ComponentWrapper[ModelComponent], ABC):
-    def __init__(self, component: ModelComponent, columns: Union[str, Tuple[str, ...]] = None, name: str = None):
-        super().__init__(component, columns, None, name)
+    """
+    Helper class for wrapping component in a (potentially) different group than originally defined.
+    """
+
+    def __init__(self, component: ModelComponent, group: Union[str, Tuple[str, ...]] = None, name: str = None):
+        """
+
+        Parameters
+        ----------
+        component: ModelComponent object to wrap.
+        group: Group which the component should be wrapped into.
+        name: Name of the component to appear in PyMC.
+        """
+        super().__init__(component, group, None, name)
 
     def __getitem__(self, item) -> ModelComponent:
-        return self.components[item]
+        return self.subcomponents[item]

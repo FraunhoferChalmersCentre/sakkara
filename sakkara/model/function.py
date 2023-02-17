@@ -3,7 +3,7 @@ import operator
 from abc import ABC
 from typing import Callable, Any, Set, Optional
 
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from sakkara.model.base import ModelComponent
 from sakkara.relation.nodepair import NodePair
@@ -55,7 +55,7 @@ class FunctionComponent(ModelComponent, ABC):
                     unbuilt.append(component)
                 else:
                     # Did not help to build other component first, name must defined for this explicitly
-                    raise ValueError('All components involved in mathematical operations must be named')
+                    raise ValueError('All arguments to must be named')
             elif component.variable is None:
                 component.build(groupset)
             counter += 1
@@ -66,7 +66,7 @@ class FunctionComponent(ModelComponent, ABC):
             self.node = NodePair(self.node, comp.node).reduced_repr()
 
     def build_variable(self) -> None:
-        def get_mapped_variable(component: ModelComponent) -> at.TensorVariable:
+        def get_mapped_variable(component: ModelComponent) -> pt.TensorVariable:
             if component.node.get_members().shape == (1,):
                 return component.variable
             mapping = self.node.map_to(component.node)
@@ -75,11 +75,11 @@ class FunctionComponent(ModelComponent, ABC):
         mapped_vars = tuple(map(get_mapped_variable, self.args))
         self.variable = self.fct(*mapped_vars)
 
-    def retrieve_columns(self) -> Set[str]:
-        columns = self.args[0].retrieve_columns()
+    def retrieve_groups(self) -> Set[str]:
+        group = self.args[0].retrieve_groups()
         for component in self.args[1:]:
-            columns = columns.union(component.retrieve_columns())
-        return columns
+            group = group.union(component.retrieve_groups())
+        return group
 
     @staticmethod
     def math_op(fct: Callable, left: Any, right: Any) -> ModelComponent:

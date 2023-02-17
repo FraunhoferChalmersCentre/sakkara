@@ -8,14 +8,22 @@ from sakkara.relation.groupset import GroupSet
 from sakkara.relation.nodepair import NodePair
 
 
-class FixedComponent(MathOpBase):
+class FixedValueComponent(MathOpBase):
     """
-    Class for fixed variables.
+    Class for non-random fixed values that appear in model that are assigned to a group.
     """
 
-    def __init__(self, value: Any, columns: Union[str, Tuple[str, ...]] = 'global', name: Optional[str] = None):
+    def __init__(self, value: Any, name: Optional[str] = None, group: Union[str, Tuple[str, ...]] = 'global'):
+        """
+
+        Parameters
+        ----------
+        value: Value to wrap into the component.
+        name: Name of the corresponding variable to register in PyMC.
+        group: Group of which the component is defined for.
+        """
         super().__init__()
-        self.columns = (columns,) if isinstance(columns, str) else columns
+        self.group = (group,) if isinstance(group, str) else group
         self.name = name
         self.values = np.array(value).reshape(1) if isinstance(value, (float, int)) else value
 
@@ -33,12 +41,12 @@ class FixedComponent(MathOpBase):
         pass
 
     def build_node(self, groupset: GroupSet) -> None:
-        self.node = groupset[self.columns[0]]
-        for column in self.columns[1:]:
+        self.node = groupset[self.group[0]]
+        for column in self.group[1:]:
             self.node = NodePair(groupset[column], self.node).reduced_repr()
 
     def build_variable(self) -> None:
         self.variable = deepcopy(self.values)
 
-    def retrieve_columns(self) -> Set[str]:
-        return set(self.columns)
+    def retrieve_groups(self) -> Set[str]:
+        return set(self.group)

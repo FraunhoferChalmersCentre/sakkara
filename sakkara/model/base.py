@@ -36,7 +36,7 @@ class ModelComponent:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def retrieve_columns(self) -> Set[str]:
+    def retrieve_groups(self) -> Set[str]:
         """
         Retrieve group names for this and underlying components
         """

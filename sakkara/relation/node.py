@@ -84,7 +84,7 @@ class Node:
 
         Parameters
         ----------
-        other: group to get mapping from
+        other: Group to get mapping from
 
         Returns
         -------

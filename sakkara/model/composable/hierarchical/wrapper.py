@@ -6,9 +6,21 @@ from sakkara.model.composable.hierarchical.base import HierarchicalComponent
 
 
 class ComponentWrapper(HierarchicalComponent[T], ABC):
-    def __init__(self, component: T, columns: Union[str, Tuple[str, ...]],
+    """
+    Base class for wrapping a single component.
+    """
+    def __init__(self, component: T, group: Union[str, Tuple[str, ...]],
                  members: Optional[Collection[Any]], name: str = None):
-        super().__init__(name, columns, members, {'component': component})
+        """
+
+        Parameters
+        ----------
+        component: ModelComponent object to wrap.
+        group: Group which the component should be wrapped into.
+        members: Members of the group that the component is defined for.
+        name: Name of the component to appear in PyMC.
+        """
+        super().__init__(name, group, members, {'component': component})
 
     def build_variable(self) -> None:
         self.variable = self.get_built_components()['component']

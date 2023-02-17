@@ -6,8 +6,8 @@ from numpy.random import default_rng
 from numpy import testing
 import pytensor.tensor as pt
 
-from sakkara.model import RandomVariable, data_components, GroupComponent, Likelihood, FunctionComponent, \
-    DeterminisitcComponent
+from sakkara.model import DistributionComponent, data_components, GroupComponent, Likelihood, FunctionComponent, \
+    DeterministicComponent
 from sakkara.model.utils import build
 
 N = 20
@@ -64,18 +64,18 @@ def partially_observed_df():
 def test_state_space_model(parallel_process_df):
     R = GroupComponent(
         name='R',
-        columns='group',
-        components={
+        group='group',
+        membercomponents={
             0: 1e-3,
-            1: RandomVariable(pm.Exponential, lam=10)
+            1: DistributionComponent(pm.Exponential, lam=10)
         }
     )
 
     data = data_components(parallel_process_df)
 
-    X = RandomVariable(pm.GaussianRandomWalk, name='X', columns='time')
+    X = DistributionComponent(pm.GaussianRandomWalk, name='X', group='time')
 
-    likelihood = Likelihood(pm.Normal, mu=X, sigma=R, obs_data=data['y'])
+    likelihood = Likelihood(pm.Normal, mu=X, sigma=R, observed=data['y'])
 
     built_model = build(parallel_process_df, likelihood)
     assert pm.draw(X.variable).shape == (20,)
@@ -86,16 +86,16 @@ def test_state_space_model(parallel_process_df):
 def test_partially_observed_state_space(partially_observed_df):
     dc = data_components(partially_observed_df)
 
-    k = RandomVariable(pm.Normal, name='diff')
+    k = DistributionComponent(pm.Normal, name='diff')
 
-    state = DeterminisitcComponent('state', FunctionComponent(pt.cumsum, None, k * dc['x']))
+    state = DeterministicComponent('state', FunctionComponent(pt.cumsum, None, k * dc['x']))
 
     likelihood = Likelihood(pm.Normal,
                             mu=state,
                             sigma=SIGMA,
-                            obs_data=dc['sample'],
+                            observed=dc['sample'],
                             nan_data_mask=0,
-                            nan_var_mask={'mu': 0, 'sigma': 1}
+                            nan_param_mask={'mu': 0, 'sigma': 1}
                             )
 
     built_model = build(partially_observed_df, likelihood)

@@ -7,6 +7,9 @@ from sakkara.model.function import FunctionComponent
 
 
 class MathOpBase(ModelComponent, ABC):
+    """
+    Base class for common mathematical operations to be performed on ModelComponent objects
+    """
 
     def __add__(self, other: Any) -> ModelComponent:
         return FunctionComponent.math_op(operator.add, self, other)
