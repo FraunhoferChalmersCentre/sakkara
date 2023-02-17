@@ -5,7 +5,7 @@ description = "Tools for hierarchical modelling with PyMC"
 authors = ["Henrik Håkansson <henrik.hakansson@fcc.chalmers.se>"]
 
 [tool.poetry.dependencies]
-python = "^3.10.6"
+python = "^3.10"
 pymc = "^5.0.0"
 numpy = "^1.23"
 pandas = "^1.4"
