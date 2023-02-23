@@ -28,16 +28,16 @@ class FunctionComponent(ModelComponent, ABC):
             if comp_name is None:
                 return None
 
-        return self.fct.__name__
+        return str(self.fct)
 
     def set_name(self, name: str) -> None:
         for i, comp in enumerate(self.args):
             if comp.get_name() is None:
-                comp.set_name(name + '_' + self.fct.__name__ + '_arg' + str(i))
+                comp.set_name(name + '_' + str(self.fct) + '_arg' + str(i))
 
         for k, comp in self.kwargs.items():
             if comp.get_name() is None:
-                comp.set_name(name + '_' + self.fct.__name__ + '_' + k)
+                comp.set_name(name + '_' + str(self.fct) + '_' + k)
 
     def clear(self):
         self.variable = None
