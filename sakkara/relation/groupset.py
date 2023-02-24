@@ -140,5 +140,7 @@ def init(df: pd.DataFrame) -> GroupSet:
     for group_name, is_twin in twin_df.iterrows():
         for name, twin_i in is_twin[is_twin].items():
             groups[str(group_name)].add_twin(groups[str(name)])
+            for member, twin_member in zip(groups[group_name].get_members(), groups[str(name)].get_members()):
+                member.add_twin(twin_member)
 
     return GroupSet(groups)

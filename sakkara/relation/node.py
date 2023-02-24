@@ -77,7 +77,6 @@ class Node:
         return tuple(map(lambda x: x.reshape(self.get_members().shape).tolist(),
                          np.unravel_index(raveled_mapping, other.get_members().shape)))
 
-    # @cache
     def map_to(self, other: 'Node') -> Union[Tuple[npt.NDArray[int], ...], slice]:
         """
         Get a mapping from other group to this group.
@@ -94,11 +93,10 @@ class Node:
             return slice(None)
         if self.representation() == other.representation() or other.is_twin_to(self) or self.is_twin_to(other):
             return self.get_mapping(other,
-                                    np.vectorize(
-                                        lambda om, sm: om.representation().intersection(sm.representation()).get_nodes()))
+                                    np.vectorize(lambda om, sm: om.representation() == sm.representation()))
 
-        if self.is_parent_to(other):
-            raise ValueError('Mapping from parent to child is not applicable.')
+            if self.is_parent_to(other):
+                raise ValueError('Mapping from parent to child is not applicable.')
 
         if not other.is_parent_to(self):
             raise ValueError('Mapping between unrelated nodes is not applicable.')

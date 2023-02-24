@@ -13,7 +13,7 @@ class DeterministicComponent(HierarchicalComponent[T], ABC):
     Wrapper for PyMC's Deterministic variables
     """
 
-    def __init__(self, name: str, component: ModelComponent, group: Optional[Union[str, Tuple[str, ...]]] = 'global'):
+    def __init__(self, name: str, component: ModelComponent, group: Optional[Union[str, Tuple[str, ...]]] = None):
         """
 
         Parameters

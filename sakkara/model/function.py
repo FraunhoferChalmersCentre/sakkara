@@ -23,7 +23,7 @@ class FunctionComponent(ModelComponent, ABC):
         self.fct = fct
 
     def get_name(self) -> Optional[str]:
-        for comp in self.args:
+        for comp in chain(self.args, self.kwargs.values()):
             comp_name = comp.get_name()
             if comp_name is None:
                 return None
@@ -41,29 +41,34 @@ class FunctionComponent(ModelComponent, ABC):
 
     def clear(self):
         self.variable = None
-        for comp in self.args:
+        for comp in chain(self.args, self.kwargs.values()):
             comp.clear()
 
     def prebuild(self, groupset: GroupSet) -> None:
-        unbuilt = [c for c in self.args]
+        unbuilt = [c for c in chain(self.args, self.kwargs.values())]
+
+        all_args = len(self.args) + len(self.kwargs)
         counter = 0
         while 0 < len(unbuilt):
             component = unbuilt.pop(0)
             if component.get_name() is None:
                 # Other components may be needed to be built first
-                if counter < len(self.args) * (1 + len(self.args)) / 2:
+                if counter < all_args * (1 + all_args) / 2:
                     unbuilt.append(component)
                 else:
-                    # Did not help to build other component first, name must defined for this explicitly
+                    # Did not help to build other component first, name must be defined for this explicitly
                     raise ValueError('All arguments to must be named')
             elif component.variable is None:
                 component.build(groupset)
             counter += 1
 
     def build_node(self, groupset: GroupSet) -> None:
-        self.node = self.args[0].node
-        for comp in self.args[1:]:
-            self.node = NodePair(self.node, comp.node).reduced_repr()
+        self.node = None
+        for comp in chain(self.args, self.kwargs.values()):
+            if self.node is None:
+                self.node = comp.node
+            else:
+                self.node = NodePair(self.node, comp.node).reduced_repr()
 
     def build_variable(self) -> None:
         def get_mapped_variable(component: ModelComponent) -> pt.TensorVariable:
@@ -72,8 +77,9 @@ class FunctionComponent(ModelComponent, ABC):
             mapping = self.node.map_to(component.node)
             return component.variable[mapping]
 
-        mapped_vars = tuple(map(get_mapped_variable, chain(self.args, self.kwargs.values())))
-        self.variable = self.fct(*mapped_vars)
+        mapped_args = tuple(map(get_mapped_variable, self.args))
+        mapped_kwargs = dict({k: get_mapped_variable(v) for k, v in self.kwargs.items()})
+        self.variable = self.fct(*mapped_args, **mapped_kwargs)
 
     def retrieve_groups(self) -> Set[str]:
         group = set()

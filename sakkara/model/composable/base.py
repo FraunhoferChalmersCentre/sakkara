@@ -62,16 +62,23 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
         raise NotImplementedError
 
     def build_group_nodes(self, groupset: GroupSet) -> None:
-        self.group_node = groupset[self.group[0]]
-        for column in self.group[1:]:
-            self.group_node = NodePair(self.group_node, groupset[column]).reduced_repr()
+        if 0 < len(self.subcomponents):
+            self.components_node = next(iter(self.subcomponents.values())).node
 
-        self.components_node = next(iter(self.subcomponents.values())).node if 0 < len(self.subcomponents) else groupset[
-            'global']
-        for component in self.subcomponents.values():
-            self.components_node = NodePair(self.components_node, component.node).reduced_repr()
+            for component in self.subcomponents.values():
+                self.components_node = NodePair(self.components_node, component.node).reduced_repr()
+        else:
+            self.components_node = groupset['global']
 
-        self.node = NodePair(self.group_node, self.components_node).reduced_repr()
+        if self.group is not None:
+            self.group_node = groupset[self.group[0]]
+            for column in self.group[1:]:
+                self.group_node = NodePair(self.group_node, groupset[column]).reduced_repr()
+
+            self.node = NodePair(self.group_node, self.components_node).reduced_repr()
+        else:
+            self.group_node = self.components_node
+            self.node = self.components_node
 
     def build_member_nodes(self):
         if self.members is None:
