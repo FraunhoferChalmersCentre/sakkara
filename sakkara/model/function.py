@@ -1,4 +1,3 @@
-import abc
 import operator
 from abc import ABC
 from itertools import chain
@@ -14,6 +13,18 @@ from sakkara.relation.groupset import GroupSet
 class FunctionComponent(ModelComponent, ABC):
     """
     Class for intermediate states of mathematical operations between components
+
+    :param fct: Function to evaluate
+
+    :param \**kwargs: See below
+
+    :Arguments:
+        * *arg* (``ModelComponent``) --
+          Arguments passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.FixedValueComponent`
+
+    :Keyword Arguments:
+        * *kwarg* (``ModelComponent``) --
+          Keyword argument passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.FixedValueComponent`
     """
 
     def __init__(self, fct: Callable[[Any, ...], Any], *args: ModelComponent, **kwargs: ModelComponent):

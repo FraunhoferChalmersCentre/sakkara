@@ -18,19 +18,21 @@ T = TypeVar('T', bound=ModelComponent)
 class Composable(MathOpBase, ABC, Generic[S, T]):
     """
     Base class for a component that can be built with underlying subcomponents
+
+
+
+    :param name: Name of the corresponding variable to register in PyMC.
+
+    :param group: Group of which the component is defined for.
+
+    :param members: Subset of members of column the component is defined for.
+
+    :param subcomponents: Dict of underlying ModelComponent objects.
+
     """
 
     def __init__(self, name: Optional[str], group: Optional[Union[str, Tuple[str, ...]]],
                  members: Optional[Collection[Any]], subcomponents: Dict[S, T]):
-        """
-
-        Parameters
-        ----------
-        name: Name of the corresponding variable to register in PyMC.
-        group: Group of which the component is defined for.
-        members: Subset of members of column the component is defined for.
-        subcomponents: Dict of underlying ModelComponent objects.
-        """
         super().__init__()
         self.name = name
         self.members = members

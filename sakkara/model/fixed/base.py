@@ -11,17 +11,13 @@ from sakkara.relation.nodepair import NodePair
 class FixedValueComponent(MathOpBase):
     """
     Class for non-random fixed values that appear in model that are assigned to a group.
+
+    :param value: Value to wrap into the component.
+    :param name: Name of the corresponding variable to register in PyMC.
+    :param group: Group of which the component is defined for.
+
     """
-
     def __init__(self, value: Any, name: Optional[str] = None, group: Union[str, Tuple[str, ...]] = 'global'):
-        """
-
-        Parameters
-        ----------
-        value: Value to wrap into the component.
-        name: Name of the corresponding variable to register in PyMC.
-        group: Group of which the component is defined for.
-        """
         super().__init__()
         self.group = (group,) if isinstance(group, str) else group
         self.name = name

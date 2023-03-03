@@ -6,7 +6,7 @@ from sakkara.relation.groupset import GroupSet
 
 class ModelComponent:
     """
-        Abstract class for all model components (variables, data, parameters)
+        Abstract class for all model components
     """
 
     def __init__(self):
@@ -47,9 +47,7 @@ class ModelComponent:
         """
         All operations to be performed before building group and variable, e.g., building the underlying components.
 
-        Parameters
-        ----------
-        groupset: Groups to be used for building all components of the model.
+        :param groupset: Groups to be used for building all components of the model.
 
         """
         raise NotImplementedError
@@ -58,9 +56,9 @@ class ModelComponent:
     def build_node(self, groupset: GroupSet) -> None:
         """
         Build the group of this component, performed after prebuild.
-        Parameters
-        ----------
-        groupset: Groups to be used for building all components of the model.
+
+        :param groupset: Groups to be used for building all components of the model.
+
         """
         raise NotImplementedError
 
@@ -68,7 +66,6 @@ class ModelComponent:
         self.prebuild(groupset)
         self.build_node(groupset)
         self.build_variable()
-
 
     @abc.abstractmethod
     def __add__(self, other: Any) -> 'ModelComponent':

@@ -3,10 +3,12 @@
 Welcome to Sakkara, a research framework for speeding up Bayesian hierarchical and graphical modelling using PyMC.
 
 ## Installation
+Recommended is to first install PyMC via Conda, and then install Sakkara with
+    
+    pip install sakkara
+    
 
-    poetry install
-
-## Minimal linear regression example
+## Small linear regression example
 
     import pandas as pd
     import numpy as np
@@ -34,3 +36,8 @@ Welcome to Sakkara, a research framework for speeding up Bayesian hierarchical a
 ## More examples
 
 See notebooks in [the notebook examples repository](https://github.com/FraunhoferChalmersCentre/sakkara-examples).
+
+
+## License
+
+The project is licensed under the BSD license.

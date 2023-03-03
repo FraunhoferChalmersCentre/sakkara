@@ -10,30 +10,23 @@ from sakkara.model.fixed.base import FixedValueComponent
 class SeriesComponent(FixedValueComponent, ABC):
     """
     Helper component for wrapping Pandas Series objects
+
+    :param data: Series to wrap as a component.
+    :param name: Name of the corresponding variable to register in PyMC.
+    :param group: Group of which the component is defined for.
     """
     def __init__(self, data: Union[npt.NDArray, pd.Series], name: str, group: str = 'obs'):
-        """
-
-        Parameters
-        ----------
-        data: Series to wrap as a component.
-        name: Name of the corresponding variable to register in PyMC.
-        group: Group of which the component is defined for.
-        """
         super().__init__(data.values if isinstance(data, pd.Series) else data, name, group)
 
 
 def data_components(df: pd.DataFrame) -> Dict[str, SeriesComponent]:
     """
-    Generate SeriesCmponent objects automatically from a DataFrame
+    Generate :class:`SeriesComponent` objects from a :class:`pandas.DataFrame`
 
-    Parameters
-    ----------
-    df: DataFrame to generate components from.
+    :param df: DataFrame to generate components from.
 
-    Returns
-    -------
-    Dictionary of {[column name in DataFrame]: SeriesComponent}
+
+    :return: Dictionary of {<column name in DataFrame>: :class:`SeriesComponent`}
 
     """
     return {k: SeriesComponent(df[k], k) for k in df}

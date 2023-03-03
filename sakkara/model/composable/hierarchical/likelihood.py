@@ -11,6 +11,17 @@ from sakkara.model.composable.hierarchical.distribution import DistributionCompo
 
 
 class Likelihood(DistributionComponent, ABC):
+    """
+    Component for a likelihood distribution, e.g, with observed data.
+
+    :param generator: PyMC callable for distribution to use.
+    :param observed: Data to input as observed keyword in PyMC.
+    :param name: Name of the corresponding variable to register in PyMC.
+    :param group: Group of which the component is defined for.
+    :param nan_param_mask: Masked distribution parameters to use for rows with `Nan`, must be defined for each keyword argument entered. Required if there are `Nan` in observed.
+    :param nan_data_mask: Masked observed value to use for rows with `Nan`. Required if there are `Nan` in observed.
+    """
+
     def __init__(self,
                  generator: Callable,
                  observed: SeriesComponent,
@@ -19,19 +30,6 @@ class Likelihood(DistributionComponent, ABC):
                  nan_param_mask: Dict[str, Any] = None,
                  nan_data_mask: Any = None,
                  **kwargs: Any):
-        """
-
-        Parameters
-        ----------
-        generator: PyMC callable for distribution to use.
-        observed: Data to input as observed keyword in PyMC.
-        name: Name of the corresponding variable to register in PyMC.
-        group: Group of which the component is defined for.
-        nan_param_mask: Masked distribution parameters to use for rows with Nan, must be defined for each keyword argument
-         entered.
-        nan_data_mask: Masked observed value to use for rows with Nan.
-        kwargs:
-        """
         if np.any(np.isnan(observed.values)):
             if nan_param_mask is None or nan_data_mask:
                 raise ValueError(

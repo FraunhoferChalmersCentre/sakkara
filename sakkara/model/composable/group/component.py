@@ -16,20 +16,14 @@ from sakkara.relation.groupset import GroupSet
 class GroupComponent(Composable[Tuple[str, ...], MemberWrapper], ABC):
     """
     Class for specifying components for each member of a group individually
-    """
 
+    :param group: Group of which the component is defined for.
+    :param membercomponents: Dictionary with key indicating member (corresponding to DataFrame value) and value its
+            corresponding value (ModelComponent or other)
+    :param name: Name of the corresponding variable to register in PyMC.
+    """
     def __init__(self, group: Union[str, Tuple[str, ...]], members: Optional[Collection[Any]] = None,
                  name: str = None, membercomponents: Dict[Any, Any] = None):
-        """
-
-        Parameters
-        ----------
-
-        group: Group of which the component is defined for.
-        membercomponents: Dictionary with key indicating member (corresponding to DataFrame value) and value its
-            corresponding value (ModelComponent or other)
-        name: Name of the corresponding variable to register in PyMC.
-        """
         super().__init__(name, group, members, {})
         if membercomponents is not None:
             for k, v in membercomponents.items():
@@ -42,10 +36,8 @@ class GroupComponent(Composable[Tuple[str, ...], MemberWrapper], ABC):
         """
         Add component for a member to the GroupComponent
 
-        Parameters
-        ----------
-        member: Key for the group member, corresponding to Dataframe value.
-        component: Value or component of the given member.
+        :param member: Key for the group member, corresponding to Dataframe value.
+        :param component: Value or component of the given member.
         """
         if not isinstance(component, ModelComponent):
             component = FixedValueComponent(component)
