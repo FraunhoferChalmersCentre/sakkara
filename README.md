@@ -38,6 +38,10 @@ Recommended is to first install PyMC via Conda, and then install Sakkara with
 See notebooks in [the notebook examples repository](https://github.com/FraunhoferChalmersCentre/sakkara-examples).
 
 
+## Docs
+
+To be published...
+
 ## License
 
-The project is licensed under the BSD license.
+The project is licensed under the MIT license.
