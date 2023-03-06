@@ -40,7 +40,7 @@ See notebooks in [the notebook examples repository](https://github.com/Fraunhofe
 
 ## Docs
 
-To be published...
+Visit [Sakkara's documentation site](https://sakkara.readthedocs.io/en/latest/).
 
 ## License
 

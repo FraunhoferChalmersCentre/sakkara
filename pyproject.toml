@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "sakkara"
-version = "0.1.0"
-description = "Tools for hierarchical modelling with PyMC"
+version = "0.3.0"
+description = "Tools for fast creation of PyMC models"
 authors = ["Henrik Håkansson <henrik.hakansson@fcc.chalmers.se>"]
 
 [tool.poetry.dependencies]
