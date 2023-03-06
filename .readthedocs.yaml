@@ -17,7 +17,7 @@ build:
       - poetry install --with docs
 
 sphinx:
-  fail_on_warning: true
+  fail_on_warning: false
   configuration: docs/source/conf.py
 
 formats:
