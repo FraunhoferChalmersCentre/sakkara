@@ -5,7 +5,8 @@ import numpy as np
 
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.nodepair import NodePair
+
+from sakkara.relation.representation import Representation
 
 
 class FixedValueComponent(MathOpBase):
@@ -31,15 +32,15 @@ class FixedValueComponent(MathOpBase):
 
     def clear(self):
         self.variable = None
-        self.node = None
+        self.representation = None
 
     def prebuild(self, groupset: GroupSet) -> None:
         pass
 
-    def build_node(self, groupset: GroupSet) -> None:
-        self.node = groupset[self.group[0]]
-        for column in self.group[1:]:
-            self.node = NodePair(groupset[column], self.node).reduced_repr()
+    def build_representation(self, groupset: GroupSet) -> None:
+        self.representation = Representation()
+        for g in self.group:
+            self.representation.add_group(groupset[g])
 
     def build_variable(self) -> None:
         self.variable = deepcopy(self.values)

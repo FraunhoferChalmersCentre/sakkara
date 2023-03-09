@@ -6,8 +6,8 @@ from typing import Callable, Any, Set, Optional
 import pytensor.tensor as pt
 
 from sakkara.model.base import ModelComponent
-from sakkara.relation.nodepair import NodePair
 from sakkara.relation.groupset import GroupSet
+from sakkara.relation.representation import Representation
 
 
 class FunctionComponent(ModelComponent, ABC):
@@ -52,6 +52,7 @@ class FunctionComponent(ModelComponent, ABC):
 
     def clear(self):
         self.variable = None
+        self.representation = None
         for comp in chain(self.args, self.kwargs.values()):
             comp.clear()
 
@@ -73,19 +74,16 @@ class FunctionComponent(ModelComponent, ABC):
                 component.build(groupset)
             counter += 1
 
-    def build_node(self, groupset: GroupSet) -> None:
-        self.node = None
+    def build_representation(self, groupset: GroupSet) -> None:
+        self.representation = Representation()
         for comp in chain(self.args, self.kwargs.values()):
-            if self.node is None:
-                self.node = comp.node
-            else:
-                self.node = NodePair(self.node, comp.node).reduced_repr()
+            self.representation = self.representation.merge(comp.representation)
 
     def build_variable(self) -> None:
         def get_mapped_variable(component: ModelComponent) -> pt.TensorVariable:
-            if component.node.get_members().shape == (1,):
+            if component.representation.get_shape() == (1,):
                 return component.variable
-            mapping = self.node.map_to(component.node)
+            mapping = component.representation.map_to(self.representation)
             return component.variable[mapping]
 
         mapped_args = tuple(map(get_mapped_variable, self.args))

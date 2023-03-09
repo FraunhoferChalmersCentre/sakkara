@@ -61,12 +61,12 @@ def test_tuple_column(simple_df):
                  group='time')
     rv_sensor = DC(pm.Normal, mu=FVC(np.arange(4) * 10, group='sensor'), sigma=sigma,
                    group='sensor')
-    rv_combined = DC(pm.Normal, mu=rv_time + rv_sensor, sigma=sigma, name='combined')
+    rv_combined = DC(pm.Normal, mu=rv_sensor + rv_time, sigma=sigma, name='combined')
 
     rv_tuple_col = DC(pm.Normal,
                       mu=FVC(
                           np.sum(np.meshgrid(np.arange(5), np.arange(4) * 10), axis=0),
-                          group=('time', 'sensor')),
+                          group=('sensor', 'time')),
                       sigma=sigma,
                       group=('time', 'sensor'),
                       name='tuple')
@@ -78,14 +78,13 @@ def test_tuple_column(simple_df):
     with pm.Model(coords=groupset.coords()):
         rv_obs.build(groupset)
 
-    assert rv_combined.node.representation() == rv_tuple_col.node.representation()
+    assert rv_combined.representation != rv_tuple_col.representation
     assert pm.draw(rv_time.variable).shape == (5,)
     assert pm.draw(rv_sensor.variable).shape == (4,)
-    # 'sensor' dim put before 'time' due to alphabetical order
     assert pm.draw(rv_tuple_col.variable).shape == (5, 4)
-    assert pm.draw(rv_combined.variable).shape == (5, 4)
+    assert pm.draw(rv_combined.variable).shape == (4, 5)
     assert pm.draw(rv_sum_1.variable).shape == (5, 4)
-    assert pm.draw(rv_sum_2.variable).shape == (5, 4)
+    assert pm.draw(rv_sum_2.variable).shape == (4, 5)
     assert pm.draw(rv_obs.variable).shape == (20,)
 
     time_codes, _ = pd.factorize(simple_df['time'])

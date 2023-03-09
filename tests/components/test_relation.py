@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 
 from sakkara.relation import groupset
-from sakkara.relation.node import Node
-from sakkara.relation.nodepair import NodePair
+from sakkara.relation.group import Group
+from sakkara.relation.representation import Representation
 
 """
 Testing relations is performed on the following graph (parents in top):
@@ -110,13 +110,13 @@ def test_init_groups(gs):
     assert len(expected_groups) == len(gs.groups)
     assert all(g in expected_groups for g in gs.groups.keys())
 
-    assert len(gs['g'].get_members()) == 1
-    assert len(gs['a'].get_members()) == 2
-    assert len(gs['b'].get_members()) == 4
-    assert len(gs['c'].get_members()) == 8
-    assert len(gs['d'].get_members()) == 3
-    assert len(gs['e'].get_members()) == 2
-    assert len(gs['o'].get_members()) == 32
+    assert len(gs['g']) == 1
+    assert len(gs['a']) == 2
+    assert len(gs['b']) == 4
+    assert len(gs['c']) == 8
+    assert len(gs['d']) == 3
+    assert len(gs['e']) == 2
+    assert len(gs['o']) == 32
 
 
 def test_get_coords(gs):
@@ -133,92 +133,71 @@ def test_get_coords(gs):
 
 def test_relations(gs, graph_dict):
     for k, v in graph_dict.items():
-        assert not gs[k].is_parent_to(gs[k])
+        assert gs[k] in gs[k].twins
         for child in v['children']:
-            assert gs[k].is_parent_to(gs[child])
-            assert not gs[child].is_parent_to(gs[k])
-            assert gs[child] in gs[k].get_children()
-            assert not gs[k] in gs[child].get_children()
+            assert gs[k] in gs[child].parents
+            assert gs[child] not in gs[k].parents
+            assert gs[child] in gs[k].children
+            assert gs[k] not in gs[child].children
+            assert gs[k] not in gs[child].twins
+            assert gs[child] not in gs[k].twins
         for parent in v['parents']:
-            assert not gs[k].is_parent_to(gs[parent])
-            assert gs[parent].is_parent_to(gs[k])
-            assert gs[k] in gs[parent].get_children()
-            assert not gs[parent] in gs[k].get_children()
+            assert gs[k] not in gs[parent].parents
+            assert gs[parent] in gs[k].parents
+            assert gs[k] in gs[parent].children
+            assert gs[parent] not in gs[k].children
+            assert gs[k] not in gs[parent].twins
+            assert gs[parent] not in gs[k].twins
         for other in v['neither']:
-            assert not gs[k].is_parent_to(gs[other])
-            assert not gs[other].is_parent_to(gs[k])
-            assert not gs[other] in gs[k].get_children()
-            assert not gs[k] in gs[other].get_children()
+            assert gs[k] not in gs[other].parents
+            assert gs[other] not in gs[k].parents
+            assert gs[other] not in gs[k].children
+            assert gs[k] not in gs[other].children
+            assert gs[k] not in gs[other].twins
+            assert gs[other] not in gs[k].twins
 
 
 def test_pairing(gs, graph_dict):
     for k, v in graph_dict.items():
-        self_pair = NodePair(gs[k], gs[k])
-        assert not self_pair.is_parent_to(gs[k])
-        assert not gs[k].is_parent_to(self_pair)
-        assert self_pair.representation().get_nodes() == {gs[k]}
-        # assert self_pair.reduced_repr() == gs[k]
+        self_repr = Representation(gs[k], gs[k])
+        assert self_repr.groups == [gs[k]]
 
         for child in v['children']:
-            for pair in (NodePair(gs[k], gs[child]), NodePair(gs[child], gs[k])):
-                assert gs[k].is_parent_to(pair)
-                assert not gs[child].is_parent_to(pair)
-                assert not pair.is_parent_to(gs[child])
-                assert not pair.is_parent_to(gs[k])
-                assert pair.representation().get_nodes() == {gs[child]}
-                # assert pair.reduced_repr() == gs[child]
+            for pair in (Representation(gs[k], gs[child]), Representation(gs[child], gs[k])):
+                assert pair.groups == [gs[child]]
 
         for parent in v['parents']:
-            for pair in (NodePair(gs[k], gs[parent]), NodePair(gs[parent], gs[k])):
-                assert not gs[k].is_parent_to(pair)
-                assert gs[parent].is_parent_to(pair)
-                assert not pair.is_parent_to(gs[parent])
-                assert not pair.is_parent_to(gs[k])
-                assert pair.representation().get_nodes() == {gs[k]}
-                # assert pair.reduced_repr() == gs[k]
+            for pair in (Representation(gs[k], gs[parent]), Representation(gs[parent], gs[k])):
+                assert pair.groups == [gs[k]]
 
         for other in v['neither']:
-            pair = NodePair(gs[k], gs[other])
-            assert gs[k].is_parent_to(pair)
-            assert gs[other].is_parent_to(pair)
-            assert not pair.is_parent_to(gs[k])
-            assert not pair.is_parent_to(gs[other])
-            assert pair.representation().get_nodes() == {gs[k], gs[other]}
-            # assert pair.reduced_repr() == pair
+            pair = Representation(gs[k], gs[other])
+            assert pair.groups == [gs[k], gs[other]]
 
-            pair = NodePair(gs[other], gs[k])
-            assert gs[k].is_parent_to(pair)
-            assert gs[other].is_parent_to(pair)
-            assert not pair.is_parent_to(gs[k])
-            assert not pair.is_parent_to(gs[other])
-            assert pair.representation().get_nodes() == {gs[other], gs[k]}
-            # assert pair.reduced_repr() == pair
+            pair = Representation(gs[other], gs[k])
+            assert pair.groups == [gs[other], gs[k]]
 
 
 def test_mapping(gs, graph_dict):
-    def test_child_parent(child: Node, parent: Node):
-        mappings = child.map_to(parent)
-        assert len(mappings) == len(parent.get_members().shape)
-        for i, mapping in enumerate(mappings):
-            assert np.array(mapping).shape == child.get_members().shape
-            assert np.all(np.isin(mapping, np.arange(parent.get_members().shape[i])))
+    def test_child_parent(child_repr: Representation, parent_repr: Representation):
 
         with pytest.raises(ValueError):
-            parent.map_to(child)
+            child_repr.map_to(parent_repr)
 
-    def test_same_representation(a: Node, b: Node):
-        if a == b:
-            assert a.map_to(b) == slice(None)
-        else:
-            for i, mapping in enumerate(a.map_to(b)):
-                testing.assert_array_equal(mapping, np.arange(a.get_members().shape[i]))
+        mapping = parent_repr.map_to(child_repr)
+        assert all(m.shape == child_repr.get_shape() for m in mapping)
+        assert all(all(np.isin(np.unique(m), np.arange(len(parent_repr.groups[i])))) for i, m in enumerate(mapping))
 
-    def test_restructured_representation(a: Node, b: Node):
-        for i, mapping in enumerate(a.map_to(b)):
-            assert np.array(mapping).shape == a.get_members().shape
-            testing.assert_array_equal(np.unique(mapping), np.arange(b.get_members().shape[i]))
+    def test_same_representation(a: Representation, b: Representation):
+        mapping = a.map_to(b)
+        assert all(m.shape == b.get_shape() for m in mapping)
+        assert all(all(np.isin(np.unique(m), np.arange(len(a.groups[i])))) for i, m in enumerate(mapping))
 
-    def test_unrelated(a: Node, b: Node):
+        mapping = b.map_to(a)
+        assert all(m.shape == a.get_shape() for m in mapping)
+        assert all(all(np.isin(np.unique(m), np.arange(len(b.groups[i])))) for i, m in enumerate(mapping))
+
+    def test_unrelated(a: Representation, b: Representation):
         with pytest.raises(ValueError):
             a.map_to(b)
 
@@ -226,23 +205,23 @@ def test_mapping(gs, graph_dict):
             b.map_to(a)
 
     for k, v in graph_dict.items():
-        test_same_representation(gs[k], gs[k])
-        test_same_representation(gs[k], NodePair(gs[k], gs[k]))
+        test_same_representation(Representation(gs[k]), Representation(gs[k]))
+        test_same_representation(Representation(gs[k]), Representation(gs[k], gs[k]))
 
         for child_name in v['children']:
-            test_child_parent(gs[child_name], gs[k])
-            test_child_parent(NodePair(gs[k], gs[child_name]), gs[k])
-            test_same_representation(NodePair(gs[k], gs[child_name]), gs[child_name])
-            test_same_representation(NodePair(gs[k], gs[child_name]), NodePair(gs[child_name], gs[k]))
+            test_child_parent(Representation(gs[child_name]), Representation(gs[k]))
+            test_child_parent(Representation(gs[k], gs[child_name]), Representation(gs[k]))
+            test_same_representation(Representation(gs[k], gs[child_name]), Representation(gs[child_name]))
+            test_same_representation(Representation(gs[k], gs[child_name]), Representation(gs[child_name], gs[k]))
 
         for parent_name in v['parents']:
-            test_child_parent(gs[k], gs[parent_name])
-            test_child_parent(NodePair(gs[k], gs[parent_name]), gs[parent_name])
-            test_same_representation(NodePair(gs[k], gs[parent_name]), gs[k])
-            test_same_representation(NodePair(gs[k], gs[parent_name]), NodePair(gs[parent_name], gs[k]))
+            test_child_parent(Representation(gs[k]), Representation(gs[parent_name]))
+            test_child_parent(Representation(gs[k], gs[parent_name]), Representation(gs[parent_name]))
+            test_same_representation(Representation(gs[k], gs[parent_name]), Representation(gs[k]))
+            test_same_representation(Representation(gs[k], gs[parent_name]), Representation(gs[parent_name], gs[k]))
 
         for other_name in v['neither']:
-            test_unrelated(gs[k], gs[other_name])
-            test_child_parent(NodePair(gs[k], gs[other_name]), gs[k])
-            test_child_parent(NodePair(gs[k], gs[other_name]), gs[other_name])
-            test_restructured_representation(NodePair(gs[k], gs[other_name]), NodePair(gs[other_name], gs[k]))
+            test_unrelated(Representation(gs[k]), Representation(gs[other_name]))
+            test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[k]))
+            test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[other_name]))
+            test_same_representation(Representation(gs[k], gs[other_name]), Representation(gs[other_name], gs[k]))

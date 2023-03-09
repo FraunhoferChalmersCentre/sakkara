@@ -3,8 +3,8 @@ from typing import Callable, Optional, Union, Tuple, Any, Iterable
 
 from sakkara.model.base import ModelComponent
 from sakkara.model.composable.base import T
-from sakkara.model.fixed.base import FixedValueComponent
 from sakkara.model.composable.hierarchical.base import HierarchicalComponent
+from sakkara.model.fixed.base import FixedValueComponent
 
 
 class DistributionComponent(HierarchicalComponent[T], ABC):
@@ -24,7 +24,8 @@ class DistributionComponent(HierarchicalComponent[T], ABC):
     :param members: Subset of members of column the component is defined for, defaults to None
     :type members: Iterable[Any]
     
-    :param \**subcomponents: Underlying components/objects passed as parameters to PyMC distribution, should correspond to keyword of `generator`
+    :param \**subcomponents: Underlying components/objects passed as parameters to PyMC distribution, should correspond
+    to keyword of `generator`
 
     **Example**
 
@@ -37,13 +38,14 @@ class DistributionComponent(HierarchicalComponent[T], ABC):
         n = DC(pm.Normal, sigma=sigma_comp)
 
     """
+
     def __init__(self, generator: Callable, name: Optional[str] = None, group: Union[str, Tuple[str, ...]] = None,
-                 members: Optional[Iterable[Any]] = None, **subcomponents: Any):
-        super().__init__(name, group, members,
+                 **subcomponents: Any):
+        super().__init__(name, group,
                          subcomponents={k: v if isinstance(v, ModelComponent) else FixedValueComponent(v) for k, v in
                                         subcomponents.items()})
         self.generator = generator
 
     def build_variable(self) -> None:
-        self.variable = self.generator(self.name, **self.get_built_components(), shape=self.node.get_members().shape,
+        self.variable = self.generator(self.name, **self.get_built_components(), shape=self.representation.get_shape(),
                                        dims=self.dims())

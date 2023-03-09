@@ -26,9 +26,9 @@ def test_args_only(simple_df):
 
     _ = build(simple_df, c)
 
-    assert str(a.node.representation()) == '{building}'
-    assert str(b.node.representation()) == '{sensor}'
-    assert str(c.node.representation()) == '{sensor}'
+    assert tuple(map(str, a.representation.groups)) == ('building',)
+    assert tuple(map(str, b.representation.groups)) == ('sensor',)
+    assert tuple(map(str, c.representation.groups)) == ('sensor',)
     assert a.get_name().split('<')[0] == 'mu_c_'
     assert a.get_name().split('>')[-1] == '_arg0'
     assert b.get_name().split('<')[0] == 'mu_c_'
@@ -56,9 +56,9 @@ def test_kwargs_only(simple_df):
 
     _ = build(simple_df, c)
 
-    assert str(a.node.representation()) == '{building}'
-    assert str(b.node.representation()) == '{sensor}'
-    assert str(c.node.representation()) == '{sensor}'
+    assert tuple(map(str, a.representation.groups)) == ('building',)
+    assert tuple(map(str, b.representation.groups)) == ('sensor',)
+    assert tuple(map(str, c.representation.groups)) == ('sensor',)
     assert a.get_name().split('<')[0] == 'mu_c_'
     assert a.get_name().split('>')[-1] == '_x'
     assert b.get_name().split('<')[0] == 'mu_c_'
@@ -88,10 +88,10 @@ def test_args_and_kwargs(simple_df):
 
     _ = build(simple_df, d)
 
-    assert str(a.node.representation()) == '{building}'
-    assert str(b.node.representation()) == '{sensor}'
-    assert str(c.node.representation()) == '{global}'
-    assert str(d.node.representation()) == '{sensor}'
+    assert tuple(map(str, a.representation.groups)) == ('building',)
+    assert tuple(map(str, b.representation.groups)) == ('sensor',)
+    assert tuple(map(str, c.representation.groups)) == ('global',)
+    assert tuple(map(str, d.representation.groups)) == ('sensor',)
     assert a.get_name().split('<')[0] == 'mu_r_'
     assert a.get_name().split('>')[-1] == '_arg0'
     assert b.get_name().split('<')[0] == 'mu_r_'
