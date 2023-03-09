@@ -19,9 +19,9 @@ class HierarchicalComponent(Composable[str, T], ABC):
     :param members: Subset of members of column the component is defined for.
     :param subcomponents: Dict of underlying :class:`ModelComponent` objects.
     """
-    def __init__(self, name: Optional[str], group: Optional[Union[str, Tuple[str, ...]]],
-                 members: Optional[Collection[Any]], subcomponents: Dict[str, T]):
-        super().__init__(name, group, members, subcomponents)
+
+    def __init__(self, name: Optional[str], group: Optional[Union[str, Tuple[str, ...]]], subcomponents: Dict[str, T]):
+        super().__init__(name, group, subcomponents)
 
     def __getitem__(self, item: Any) -> ModelComponent:
         return self.subcomponents[item]
@@ -32,11 +32,6 @@ class HierarchicalComponent(Composable[str, T], ABC):
     def get_built_components(self) -> Dict[str, pt.Variable]:
         built_components = {}
         for key, comp in self.subcomponents.items():
-            built_components[key] = comp.variable[self.node.map_to(comp.node)]
-
-            if self.member_nodes.size < self.group_node.get_members().ravel().size:
-                built_components[key] = built_components[key][self.node.member_subset(self.member_nodes)]
+            built_components[key] = comp.variable[comp.representation.map_to(self.representation)]
 
         return built_components
-
-

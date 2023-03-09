@@ -10,7 +10,7 @@ class ModelComponent:
     """
 
     def __init__(self):
-        self.node = None
+        self.representation = None
         self.variable = None
 
     @abc.abstractmethod
@@ -53,7 +53,7 @@ class ModelComponent:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def build_node(self, groupset: GroupSet) -> None:
+    def build_representation(self, groupset: GroupSet) -> None:
         """
         Build the group of this component, performed after prebuild.
 
@@ -64,7 +64,7 @@ class ModelComponent:
 
     def build(self, groupset: GroupSet) -> None:
         self.prebuild(groupset)
-        self.build_node(groupset)
+        self.build_representation(groupset)
         self.build_variable()
 
     @abc.abstractmethod

@@ -1,15 +1,13 @@
 import abc
 from abc import ABC
 from functools import cache
-from typing import Generic, Optional, Union, Tuple, Collection, Any, Dict, Set, TypeVar
-
-import numpy as np
-from pytensor import tensor as at
+from typing import Generic, Optional, Union, Tuple, Any, Dict, Set, TypeVar
 
 from sakkara.model.base import ModelComponent
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.nodepair import NodePair
+
+from sakkara.relation.representation import Representation
 
 S = TypeVar('S', bound=Any)
 T = TypeVar('T', bound=ModelComponent)
@@ -31,16 +29,18 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
 
     """
 
-    def __init__(self, name: Optional[str], group: Optional[Union[str, Tuple[str, ...]]],
-                 members: Optional[Collection[Any]], subcomponents: Dict[S, T]):
+    def __init__(self, name: Optional[str], group: Optional[Union[str, Tuple[str, ...]]], subcomponents: Dict[S, T]):
         super().__init__()
         self.name = name
-        self.members = members
-        self.member_nodes = None
-        self.group = (group,) if isinstance(group, str) else group
+        if isinstance(group, str):
+            self.group = (group,)
+        elif group is None:
+            self.group = tuple()
+        else:
+            self.group = group
         self.subcomponents = subcomponents
-        self.group_node = None
-        self.components_node = None
+        self.base_representation = None
+        self.components_representation = None
 
     @abc.abstractmethod
     def __getitem__(self, item: Any) -> T:
@@ -59,45 +59,25 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
             if component.variable is None:
                 component.build(groupset)
 
-    @abc.abstractmethod
-    def get_built_components(self) -> Dict[S, at.Variable]:
-        raise NotImplementedError
+    def build_representation(self, groupset: GroupSet):
+        self.representation = Representation()
+        self.base_representation = Representation()
+        self.components_representation = Representation()
 
-    def build_group_nodes(self, groupset: GroupSet) -> None:
-        if 0 < len(self.subcomponents):
-            self.components_node = next(iter(self.subcomponents.values())).node
+        for g in self.group:
+            self.base_representation.add_group(groupset[g])
 
-            for component in self.subcomponents.values():
-                self.components_node = NodePair(self.components_node, component.node).reduced_repr()
-        else:
-            self.components_node = groupset['global']
+        for component in self.subcomponents.values():
+            self.components_representation = self.components_representation.merge(component.representation)
 
-        if self.group is not None:
-            self.group_node = groupset[self.group[0]]
-            for column in self.group[1:]:
-                self.group_node = NodePair(self.group_node, groupset[column]).reduced_repr()
+        self.representation = self.base_representation.merge(self.components_representation)
 
-            self.node = NodePair(self.group_node, self.components_node).reduced_repr()
-        else:
-            self.group_node = self.components_node
-            self.node = self.components_node
-
-    def build_member_nodes(self):
-        if self.members is None:
-            self.member_nodes = self.group_node.get_members().ravel()
-        else:
-            self.members = {m if isinstance(m, Tuple) else (m,) for m in self.members}
-            key_match = np.vectorize(lambda node: node.get_key() in self.members)
-            self.member_nodes = self.group_node.get_members().ravel()[
-                key_match(self.group_node.get_members().ravel())]
-
-    def build_node(self, groupset: GroupSet):
-        self.build_group_nodes(groupset)
-        self.build_member_nodes()
+        if len(self.representation.groups) == 0:
+            self.representation.add_group(groupset['global'])
 
     def clear(self):
         self.variable = None
-        self.node = None
+        self.representation = None
         for c in self.subcomponents.values():
             c.clear()
 
@@ -113,4 +93,4 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
         return group
 
     def dims(self):
-        return tuple(map(str, self.node.representation()))
+        return tuple(map(str, self.representation.groups))

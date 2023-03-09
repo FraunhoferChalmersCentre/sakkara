@@ -41,6 +41,14 @@ API
    miscellaneous/build.rst
    miscellaneous/data_components.rst
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Relation utils
+
+   relation_utils/group.rst
+   relation_utils/representation.rst
+   relation_utils/groupset.rst
+
 Indices and tables
 --------------------
 * :ref:`genindex`

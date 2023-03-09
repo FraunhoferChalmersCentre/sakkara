@@ -6,7 +6,7 @@ import numpy as np
 
 from sakkara.model.fixed.base import FixedValueComponent
 from sakkara.model.fixed.data import SeriesComponent
-from sakkara.model.composable.group.component import GroupComponent
+from sakkara.model.composable.group import GroupComponent
 from sakkara.model.composable.hierarchical.distribution import DistributionComponent
 
 

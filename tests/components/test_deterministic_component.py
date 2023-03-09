@@ -20,7 +20,7 @@ def test_deterministic_component(simple_df):
     assert a.get_name().split('>')[-1] == '_arg0'
     assert b.get_name().split('<')[0] == 'var_c_'
     assert b.get_name().split('>')[-1] == '_arg1'
-    assert str(c.node.representation()) == '{time}'
+    assert tuple(map(str, c.representation.groups)) == ('time',)
     assert all(x == pytest.approx(y) for x, y in zip(pm.draw(c.variable), np.arange(1, 6)))
 
 

@@ -2,14 +2,16 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import pkg_resources
+import datetime
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Sakkara'
-copyright = '2023, Fraunhofer-Chalmers Centre'
+copyright = f'{datetime.date.today().year}, Fraunhofer-Chalmers Centre'
 author = 'Fraunhofer-Chalmers Centre'
-release = '0.3.0'
+release = pkg_resources.get_distribution('sakkara').version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

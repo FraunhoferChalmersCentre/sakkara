@@ -18,7 +18,7 @@ class DeterministicComponent(HierarchicalComponent[T], ABC):
     """
 
     def __init__(self, name: str, component: ModelComponent, group: Optional[Union[str, Tuple[str, ...]]] = None):
-        super().__init__(name, group, None, subcomponents={'var': component})
+        super().__init__(name, group, subcomponents={'var': component})
 
     def build_variable(self) -> None:
         self.variable = pm.Deterministic(self.name, **self.get_built_components(), dims=self.dims())

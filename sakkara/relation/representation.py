@@ -1,128 +1,136 @@
-from sakkara.relation.node import Node
-from typing import Iterable
+from typing import Union, Tuple, Any
+
 import numpy as np
+import numpy.typing as npt
+
+from sakkara.relation.group import Group
 
 
 class Representation:
+    """
+    Class for a tuple of groups, reduced to its minimal representation. E.g., a parent can be represented by its child,
+    hence when creating a `Representation` object of the two only the child will be added to the tuple.
 
-    def __init__(self, nodes: set['Node', ...]):
-        self.nodes = nodes
-        self.updated = True
-        self.before_reduce = len(self.nodes)
+    :param \*groups: :class:`Group` objects to include in representation
+    """
+    def __init__(self, *groups: 'Group'):
+        self.groups = []
+        for g in groups:
+            self.add_group(g)
 
-    def get_order(self):
-        if self.updated:
-            self.reduce()
-        list_sed_nodes = list(self.nodes)
-        list_sed_nodes.sort()
-        return list_sed_nodes
+    def add_group(self, group: Group) -> None:
+        """
+        Add group to the representation. It will not be added if there already is a twin or a child in
+        the representation. If there is a parent to the group in the representation, the group will be added and the
+        parent will be removed.
+        """
+        # Check that group is not already represented by twin or child
+        representatives = group.twins.union(group.children)
+        if any(map(lambda t: t in representatives, self.groups)):
+            return
 
-    def reduce(self):
-        self.nodes = {n_i for n_i in self.nodes if not np.any([n_i.is_parent_to(n_j) for n_j in self.nodes])}
-        lnodes = list(self.nodes)
-        has_twin = [[j for j in range(i+1, len(lnodes)) if lnodes[i].is_twin_to(lnodes[j])] for i in range(len(lnodes)-1)] + [[]]
-        index = np.ones((len(lnodes)), dtype=bool)
-        for i in range(len(lnodes)):
-            if len(has_twin[i]) > 0 and index[i]:
-                index[has_twin[i]] = False
-        self.nodes = {n_i for i, n_i in enumerate(lnodes) if index[i]}
-        self.updated = False
+        # Add group to representation
+        self.groups.append(group)
 
-    def set_nodes(self, nodes: set[Node, ...]):
-        self.nodes = nodes
-        self.comp_expected_len()
+        # Check if newly added group's parents are represented in group
+        for parent in group.parents:
+            # Remove if they are included (due to redundancy)
+            if parent in self.groups:
+                self.groups.remove(parent)
 
-    def get_nodes(self):
-        if self.updated:
-            self.reduce()
-        return self.nodes
+    def merge(self, other: 'Representation') -> 'Representation':
+        """
+        Create a new `Representation` by adding upp groups from this object and from another.
 
-    def __eq__(self, other: 'Representation') -> bool:
-        if self.updated:
-            self.reduce()
-        nodes_eq = self.nodes == other.nodes
-        if not nodes_eq:
-            remaining_nodes = list(self.nodes.union(other.nodes) - self.nodes.intersection(other.nodes))
-            n_nodes = len(remaining_nodes)
-            matches = np.zeros((n_nodes, n_nodes), dtype=bool)
-            for i in range(n_nodes-1):
-                node_matches = [remaining_nodes[i].is_twin_to(remaining_nodes[j]) for j in range(i, n_nodes)]
-                matches[i, i:] = node_matches
-                matches[i:, i] = node_matches
+        :param other: Other `Representation` to merge with
 
-            if np.all(np.any(matches, axis=0)):
-                nodes_eq = True
-        return nodes_eq
+        :return: Merged representation. Note that all groups of the merged has either a twin or a parent group in at
+            least one of the two input representations.
+        """
+        merged = Representation(*self.groups)
+        for group in other.groups:
+            merged.add_group(group)
 
-    def __copy__(self):
-        if self.updated:
-            self.reduce()
-        return Representation(self.nodes.copy())
+        return merged
 
-    def __iter__(self):
-        if self.updated:
-            self.reduce()
-        return iter(sorted(self.nodes))
+    def is_mappable_to(self, target: 'Representation') -> bool:
+        """
+        Check if representation is mappable to another representation, i.e., groups of the other representation have
+        twins or parents among the groups of this representation.
 
-    def __str__(self) -> str:
-        if self.updated:
-            self.reduce()
-        return '{' + ', '.join(map(str, self.nodes)) + '}'
+        :return: `True` is self is mappable to target
+        """
+        target_represents = set()
+        for target_group in target.groups:
+            target_represents = target_represents.union(target_group.twins).union(target_group.parents)
+        return all(map(lambda t: t in target_represents, self.groups))
 
-    def __len__(self) -> int:
-        if self.updated:
-            self.reduce()
-        return len(self.nodes)
+    def get_shape(self) -> Tuple[int, ...]:
+        """
+        Get the shape of a variable corresponding to a component with this representation
+        """
+        return tuple(map(len, self.groups))
 
-    def get_expected_len(self):
-        return self.before_reduce
+    def __eq__(self, other: 'Representation'):
+        return len(self.groups) == len(other.groups) and all(map(lambda x, y: x == y, self.groups, other.groups))
 
-    def comp_expected_len(self):
-        self.before_reduce = len(self.nodes)
+    def get_member_array(self, group: Group) -> npt.NDArray[Any]:
+        """
+        Get an array shaped as a variable with this representation, where each value correspond to the member of the
+        i:th group.
+        """
+        group_index = self.groups.index(group)
+        # Get shape of representation, but target_group excluded
+        other_shape = self.get_shape()[:group_index] + self.get_shape()[group_index + 1:]
+        # Create flat array or target_group members repeated, as if i == 0
+        member_array = np.repeat(group.members, np.prod(other_shape))
+        # Reshape target_members to have the same order as target's representation
+        member_array = member_array.reshape((len(group),) + other_shape)
+        # Swap i:th and 0:th axes to handle the case when i != 0
+        member_array = np.swapaxes(member_array, 0, group_index)
 
-    # Set Operations
-    def add(self, element: Node) -> None:
-        self.nodes.add(element)
-        self.updated = True
-        self.comp_expected_len()
+        return member_array
 
-    def update(self, *s: Iterable[Node]) -> None:
-        self.nodes.update(*s)
-        self.comp_expected_len()
-        self.updated = True
+    def map_to(self, target: 'Representation') -> Union[Tuple[npt.NDArray[int], ...], slice]:
+        """
+        Create indexing for a variable of this representation to another target representation.
 
-    def discard(self, element: Node) -> None:
-        self.nodes.discard(element)
-        self.comp_expected_len()
-        self.updated = True
+        :param target: The representation that corresponds to the shape the variable should be in. Each group of self
+            representation must have a twin or a child in the target representation.
 
-    def pop(self) -> Node:
-        self.updated = True
-        node = self.nodes.pop()
-        self.comp_expected_len()
-        return node
+        :return: Tuple of index arrays, or slice object, to be used for indexing on array object. For more information
+            about the format of this tuple, see https://numpy.org/doc/stable/user/basics.indexing.html#advanced-indexing.
 
-    def remove(self, element: Node) -> None:
-        self.nodes.remove(element)
-        self.updated = True
-        self.comp_expected_len()
+        """
+        if not self.is_mappable_to(target):
+            raise ValueError(
+                'Representation cannot be mapped to target. Instead do mapping to a representation of this merged with target.')
 
-    def clear(self) -> None:
-        self.nodes.clear()
-        self.updated = True
-        self.before_reduce = 0
+        mapping = []
 
-    def union(self, *s: Iterable[Node]) -> 'Representation':
-        copy_rep = self.__copy__()
-        copy_rep.set_nodes(self.nodes.union(*s))
-        return copy_rep
+        for group in self.groups:
+            for i, target_group in enumerate(target.groups):
+                # Match any group of target representation that is either child or twin to this
+                representatives = {group}.union(group.children).union(group.twins)
 
-    def intersection(self, *s: Iterable[Node]) -> 'Representation':
-        copy_rep = self.__copy__()
-        copy_rep.set_nodes(self.nodes.intersection(*s))
-        return copy_rep
+                if target_group in representatives:
+                    # Get the array of members of target group, shaped according to target representation
+                    target_members = target.get_member_array(target_group)
+                    # Fetch mapping from target_members into members of group
+                    this_group_members = target_group.mapping.loc[target_members.ravel(), group.name].values
+                    # Append mapping, reshaped to target representation's shape
+                    mapping.append(this_group_members.reshape(target.get_shape()))
 
-    def difference(self, *s: Iterable[Node]) -> 'Representation':
-        copy_rep = self.__copy__()
-        copy_rep.set_nodes(self.nodes.difference(*s))
-        return copy_rep
+                    # Finding more representatives not needed
+                    break
+
+        return tuple(mapping)
+
+    def get_members(self) -> Tuple[npt.NDArray[Any], ...]:
+        """
+        Get array of members corresponding to the indices of a variable with the representation
+
+        :return: One array per group of representation filled with corresponding member names, so that the i:th array
+            correspond to the i:th group of the representation
+        """
+        return tuple(map(lambda group: self.get_member_array(group), self.groups))
