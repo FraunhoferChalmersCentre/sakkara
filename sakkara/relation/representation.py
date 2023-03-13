@@ -13,6 +13,7 @@ class Representation:
 
     :param \*groups: :class:`Group` objects to include in representation
     """
+
     def __init__(self, *groups: 'Group'):
         self.groups = []
         for g in groups:
@@ -72,7 +73,7 @@ class Representation:
         return tuple(map(len, self.groups))
 
     def __eq__(self, other: 'Representation'):
-        return len(self.groups) == len(other.groups) and all(map(lambda x, y: x == y, self.groups, other.groups))
+        return len(self.groups) == len(other.groups) and all(map(lambda x, y: x in y.twins, self.groups, other.groups))
 
     def get_member_array(self, group: Group) -> npt.NDArray[Any]:
         """
@@ -102,6 +103,8 @@ class Representation:
             about the format of this tuple, see https://numpy.org/doc/stable/user/basics.indexing.html#advanced-indexing.
 
         """
+        if self == target:
+            return slice(None)
         if not self.is_mappable_to(target):
             raise ValueError(
                 'Representation cannot be mapped to target. Instead do mapping to a representation of this merged with target.')

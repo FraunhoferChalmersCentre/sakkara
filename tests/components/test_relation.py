@@ -188,7 +188,7 @@ def test_mapping(gs, graph_dict):
         assert all(m.shape == child_repr.get_shape() for m in mapping)
         assert all(all(np.isin(np.unique(m), np.arange(len(parent_repr.groups[i])))) for i, m in enumerate(mapping))
 
-    def test_same_representation(a: Representation, b: Representation):
+    def test_permuted_representation(a: Representation, b: Representation):
         mapping = a.map_to(b)
         assert all(m.shape == b.get_shape() for m in mapping)
         assert all(all(np.isin(np.unique(m), np.arange(len(a.groups[i])))) for i, m in enumerate(mapping))
@@ -196,6 +196,13 @@ def test_mapping(gs, graph_dict):
         mapping = b.map_to(a)
         assert all(m.shape == a.get_shape() for m in mapping)
         assert all(all(np.isin(np.unique(m), np.arange(len(b.groups[i])))) for i, m in enumerate(mapping))
+
+    def test_same_representation(a: Representation, b: Representation):
+        mapping = a.map_to(b)
+        assert mapping == slice(None)
+
+        mapping = b.map_to(a)
+        assert mapping == slice(None)
 
     def test_unrelated(a: Representation, b: Representation):
         with pytest.raises(ValueError):
@@ -224,4 +231,5 @@ def test_mapping(gs, graph_dict):
             test_unrelated(Representation(gs[k]), Representation(gs[other_name]))
             test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[k]))
             test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[other_name]))
-            test_same_representation(Representation(gs[k], gs[other_name]), Representation(gs[other_name], gs[k]))
+            test_same_representation(Representation(gs[k], gs[other_name]), Representation(gs[k], gs[other_name]))
+            test_permuted_representation(Representation(gs[k], gs[other_name]), Representation(gs[other_name], gs[k]))
