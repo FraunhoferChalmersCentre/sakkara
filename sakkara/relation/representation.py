@@ -1,6 +1,6 @@
 import abc
 from abc import ABC
-from typing import Tuple, Any, List, Optional
+from typing import Tuple, Any, List
 
 import numpy as np
 import numpy.typing as npt
@@ -56,7 +56,7 @@ class Representation:
     @abc.abstractmethod
     def get_member_tuples(self) -> List[Tuple[Any, ...]]:
         """
-        Get a list of all member tuples of this represention
+        Get a (flat) list of all member tuples of this representation
         """
         raise NotImplementedError
 
@@ -90,13 +90,13 @@ class UnrepeatableRepresentation(Representation, ABC):
         return other
 
     def get_member_array(self, group: Group) -> npt.NDArray[Any]:
-        raise ValueError('Fixed representation does not hold any groups')
+        raise ValueError('This representation does not hold any groups')
 
     def get_members(self) -> Tuple[npt.NDArray, ...]:
-        raise ValueError('Fixed representation does not hold any groups')
+        raise ValueError('This representation does not hold any groups')
 
     def get_member_tuples(self) -> List[Tuple[Any, ...]]:
-        raise ValueError('Fixed representation does not hold any groups')
+        raise ValueError('This representation does not hold any groups')
 
     def map(self, element: object, target_representation: 'Representation'):
         return element
@@ -112,7 +112,6 @@ class TensorRepresentation(Representation, ABC):
 
     :param \*groups: :class:`Group` objects to include in representation
     """
-
     def __init__(self, *groups: 'Group'):
         self.groups = []
         for g in groups:
@@ -211,10 +210,13 @@ class TensorRepresentation(Representation, ABC):
         return element[tuple(mapping)]
 
     def get_members(self) -> Tuple[npt.NDArray, ...]:
+        if len(self.groups) == 0:
+            raise ValueError('This representation does not hold any groups')
         return tuple(map(lambda group: self.get_member_array(group), self.groups))
 
     def get_member_tuples(self) -> List[Tuple[Any, ...]]:
-        # Get all the member tuples, raveled
+        if len(self.groups) == 0:
+            raise ValueError('This representation does not hold any groups')
         if len(self.groups) == 1:
             return [(x,) for x in np.ravel(self.get_members()[0])]
         else:

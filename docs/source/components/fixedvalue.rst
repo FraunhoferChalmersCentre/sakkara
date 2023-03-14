@@ -1,4 +1,4 @@
 .. title:: FixedValueComponent
 
-.. automodule:: sakkara.model
-    :members: FixedValueComponent
+.. automodule:: sakkara.model.fixed.base
+    :members: FixedValueComponent, UnrepeatableComponent

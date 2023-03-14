@@ -10,7 +10,8 @@ from sakkara.relation.representation import TensorRepresentation
 
 class FunctionComponent(ModelComponent, ABC):
     """
-    Class for intermediate states of mathematical operations between components
+    Class for intermediate states of mathematical operations between components. This class is intended for internal
+    usage, to use a generic function in your model see :meth:`sakkara.model.f_`
 
     :param fct: Function to evaluate
 
@@ -18,11 +19,11 @@ class FunctionComponent(ModelComponent, ABC):
 
     :Arguments:
         * *arg* (``ModelComponent``) --
-          Arguments passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.FixedValueComponent`
+          Arguments passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.UnrepeatableComponent`
 
     :Keyword Arguments:
         * *kwarg* (``ModelComponent``) --
-          Keyword argument passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.FixedValueComponent`
+          Keyword argument passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.UnrepeatableComponent`
     """
 
     def __init__(self, fct: Callable[[Any, ...], Any], *args: ModelComponent, **kwargs: ModelComponent):

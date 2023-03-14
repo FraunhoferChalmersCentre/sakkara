@@ -11,11 +11,12 @@ from sakkara.relation.representation import TensorRepresentation
 
 class DataComponent(FixedValueComponent, ABC):
     """
-    Helper component for wrapping Pandas Series objects
+    Wrap data, of some given colums, into a component
 
-    :param data: Series to wrap as a component.
-    :param name: Name of the corresponding variable to register in PyMC.
-    :param group: Group of which the component is defined for.
+    :param data: Array of data to wrap.
+    :param group: Group(s) of which the component is defined for. The number of elements should correspond to the
+        order of the data array.
+    :param name: Name of the component.
     """
 
     def __init__(self, data: Union[npt.NDArray, pd.Series], group: Union[str, Tuple[str, ...]], name: str = None):
@@ -29,12 +30,12 @@ class DataComponent(FixedValueComponent, ABC):
 
 def data_components(df: pd.DataFrame) -> Dict[str, DataComponent]:
     """
-    Generate :class:`SeriesComponent` objects from a :class:`pandas.DataFrame`
+    Generate :class:`DataComponent` objects from a :class:`pandas.DataFrame`
 
     :param df: DataFrame to generate components from.
 
 
-    :return: Dictionary of {<column name in DataFrame>: :class:`SeriesComponent`}
+    :return: Dictionary of {<column name in DataFrame>: :class:`DataComponent`}
 
     """
     return {k: DataComponent(df[k], 'obs', k) for k in df}

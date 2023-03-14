@@ -47,6 +47,9 @@ class FixedValueComponent(MathOpBase, ABC):
 
 
 class UnrepeatableComponent(FixedValueComponent, ABC):
+    """
+    Class for components that are fixed and cannot be repeated
+    """
     def __init__(self, value: Any):
         super().__init__(value, 'global')
 
