@@ -6,9 +6,9 @@ from pytensor import tensor as pt
 import numpy as np
 from numpy import typing as npt
 
+from sakkara.model.fixed.data import DataComponent
 from sakkara.model.base import ModelComponent
 from sakkara.model.composable.base import Composable, T
-from sakkara.model.fixed.base import FixedValueComponent
 from sakkara.relation.groupset import GroupSet
 
 
@@ -39,7 +39,7 @@ class GroupComponent(Composable[Tuple[str, ...], T], ABC):
         :param component: Value or component of the given member.
         """
         if not isinstance(component, ModelComponent):
-            component = FixedValueComponent(component)
+            component = DataComponent(component, 'global')
         key = member if isinstance(member, tuple) else (member,)
         self.subcomponents[key] = component
 
@@ -47,34 +47,29 @@ class GroupComponent(Composable[Tuple[str, ...], T], ABC):
         self.build_components(groupset)
 
     def build_variable(self) -> None:
-        base_members = self.base_representation.get_members()
+        member_tuples = self.base_representation.get_member_tuples()
 
-        # Get all the member tuples, raveled
-        if len(base_members) == 1:
-            all_member_tuples = [(x,) for x in np.ravel(base_members[0])]
-        else:
-            all_member_tuples = [(x,) for x in zip(map(np.ravel, base_members))]
-
-        if not all(m in self.subcomponents for m in all_member_tuples):
+        if not all(m in self.subcomponents for m in member_tuples):
             raise ValueError('All member of group component must be specified.')
 
-        # Get the member array for each group, re-order with mapping and flatten
-        base_to_repr_map = self.base_representation.map_to(self.representation)
-        base_members_reordered = tuple(map(lambda x: x[base_to_repr_map].ravel(), base_members))
+        # Get the member array for each group, re-order with mapping
+        base_members = self.base_representation.get_members()
+        base_members_reordered = tuple(
+            map(lambda x: self.base_representation.map(x, self.representation), base_members))
 
         # Create array for adding
-        member_tensor = np.empty(len(all_member_tuples), dtype=object)
+        member_tensor = np.empty(len(member_tuples), dtype=object)
 
-        for i, member_tuple in enumerate(all_member_tuples):
+        for i, member_tuple in enumerate(member_tuples):
             # Get the component
             component = self.subcomponents[member_tuple]
             # Get the variable, re-order to the representation and flatten
-            member_variable = component.variable[component.representation.map_to(self.representation)].ravel()
+            member_variable = component.representation.map(component.variable, self.representation)
 
             # Mask all the entries of the group variable (with self.representation) corresponding to this member
             mask = np.ones(np.prod(self.representation.get_shape()), dtype=bool)
             for j, m in enumerate(member_tuple):
-                mask *= base_members_reordered[j] == m
+                mask *= base_members_reordered[j].ravel() == m
 
             member_tensor[i] = member_variable[mask]
 

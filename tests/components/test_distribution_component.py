@@ -4,7 +4,7 @@ import pymc as pm
 import pytest
 from scipy.stats.distributions import norm, binom
 
-from sakkara.model import FixedValueComponent as FVC, DistributionComponent as DC, build
+from sakkara.model import DataComponent, DistributionComponent as DC, build
 from sakkara.relation.groupset import init
 
 
@@ -46,7 +46,7 @@ def test_build_variables(simple_df):
 
 @pytest.mark.usefixtures('simple_df')
 def test_twin_groups(simple_df):
-    a = DC(pm.Normal, group='obs', mu=FVC(np.arange(len(simple_df)), group='time_2'), sigma=1e-15, name='a')
+    a = DC(pm.Normal, group='obs', mu=DataComponent(np.arange(len(simple_df)), group='time_2'), sigma=1e-15, name='a')
 
     _ = build(simple_df, a)
 
@@ -57,14 +57,14 @@ def test_twin_groups(simple_df):
 def test_tuple_column(simple_df):
     groupset = init(simple_df)
     sigma = 1e-15
-    rv_time = DC(pm.Normal, mu=FVC(np.arange(5), group='time'), sigma=sigma,
+    rv_time = DC(pm.Normal, mu=DataComponent(np.arange(5), group='time'), sigma=sigma,
                  group='time')
-    rv_sensor = DC(pm.Normal, mu=FVC(np.arange(4) * 10, group='sensor'), sigma=sigma,
+    rv_sensor = DC(pm.Normal, mu=DataComponent(np.arange(4) * 10, group='sensor'), sigma=sigma,
                    group='sensor')
     rv_combined = DC(pm.Normal, mu=rv_sensor + rv_time, sigma=sigma, name='combined')
 
     rv_tuple_col = DC(pm.Normal,
-                      mu=FVC(
+                      mu=DataComponent(
                           np.sum(np.meshgrid(np.arange(5), np.arange(4) * 10), axis=0),
                           group=('sensor', 'time')),
                       sigma=sigma,

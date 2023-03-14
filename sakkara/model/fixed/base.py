@@ -1,3 +1,4 @@
+from abc import ABC
 from copy import deepcopy
 from typing import Any, Union, Tuple, Optional, Set
 
@@ -6,10 +7,10 @@ import numpy as np
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
 
-from sakkara.relation.representation import Representation
+from sakkara.relation.representation import UnrepeatableRepresentation
 
 
-class FixedValueComponent(MathOpBase):
+class FixedValueComponent(MathOpBase, ABC):
     """
     Class for non-random fixed values that appear in model that are assigned to a group.
 
@@ -18,7 +19,8 @@ class FixedValueComponent(MathOpBase):
     :param group: Group of which the component is defined for.
 
     """
-    def __init__(self, value: Any, name: Optional[str] = None, group: Union[str, Tuple[str, ...]] = 'global'):
+
+    def __init__(self, value: Any, group: Union[str, Tuple[str, ...]], name: Optional[str] = None):
         super().__init__()
         self.group = (group,) if isinstance(group, str) else group
         self.name = name
@@ -37,13 +39,19 @@ class FixedValueComponent(MathOpBase):
     def prebuild(self, groupset: GroupSet) -> None:
         pass
 
-    def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = Representation()
-        for g in self.group:
-            self.representation.add_group(groupset[g])
-
     def build_variable(self) -> None:
         self.variable = deepcopy(self.values)
 
     def retrieve_groups(self) -> Set[str]:
         return set(self.group)
+
+
+class UnrepeatableComponent(FixedValueComponent, ABC):
+    """
+    Class for components that are fixed and cannot be repeated
+    """
+    def __init__(self, value: Any):
+        super().__init__(value, 'global')
+
+    def build_representation(self, groupset: GroupSet) -> None:
+        self.representation = UnrepeatableRepresentation()

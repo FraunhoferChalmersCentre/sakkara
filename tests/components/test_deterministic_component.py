@@ -2,12 +2,12 @@ import pytest
 import pymc as pm
 import numpy as np
 
-from sakkara.model import DistributionComponent as DC, DeterministicComponent as DetC, build, FixedValueComponent as FVC
+from sakkara.model import DistributionComponent as DC, DeterministicComponent as DetC, build, DataComponent
 
 
 @pytest.mark.usefixtures('simple_df')
 def test_deterministic_component(simple_df):
-    a = DC(pm.Normal, group='time', mu=FVC(np.arange(5), group='time'), sigma=1e-15)
+    a = DC(pm.Normal, group='time', mu=DataComponent(np.arange(5), group='time'), sigma=1e-15)
     b = DC(pm.Normal, mu=1, sigma=1e-15)
 
     c = DetC('c', a + b)
@@ -26,8 +26,8 @@ def test_deterministic_component(simple_df):
 
 @pytest.mark.usefixtures('simple_df')
 def test_twin(simple_df):
-    a = DC(pm.Normal, group='obs', mu=FVC(np.arange(len(simple_df)), group='time_2'), sigma=1e-15)
-    b = DC(pm.Normal, group='time_2', mu=FVC(np.arange(10, 10 + len(simple_df)), group='obs'), sigma=1e-15)
+    a = DC(pm.Normal, group='obs', mu=DataComponent(np.arange(len(simple_df)), group='time_2'), sigma=1e-15)
+    b = DC(pm.Normal, group='time_2', mu=DataComponent(np.arange(10, 10 + len(simple_df)), group='obs'), sigma=1e-15)
 
     c = DetC('c', a + b)
 

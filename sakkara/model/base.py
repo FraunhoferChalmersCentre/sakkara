@@ -63,6 +63,11 @@ class ModelComponent:
         raise NotImplementedError
 
     def build(self, groupset: GroupSet) -> None:
+        """
+        Method to call for building variables from the component. Will chronological order call
+        :meth:`ModelComponent.prebuild`, :meth:`ModelComponent.build_representation`, and
+        :meth:`ModelComponent.build_variable`
+        """
         self.prebuild(groupset)
         self.build_representation(groupset)
         self.build_variable()

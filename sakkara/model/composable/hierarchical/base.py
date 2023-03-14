@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Dict, Union, Tuple, Optional, Collection
+from typing import Any, Dict, Union, Tuple, Optional
 
 import pytensor.tensor as pt
 
@@ -32,6 +32,6 @@ class HierarchicalComponent(Composable[str, T], ABC):
     def get_built_components(self) -> Dict[str, pt.Variable]:
         built_components = {}
         for key, comp in self.subcomponents.items():
-            built_components[key] = comp.variable[comp.representation.map_to(self.representation)]
+            built_components[key] = comp.representation.map(comp.variable, self.representation)
 
         return built_components

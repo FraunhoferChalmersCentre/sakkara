@@ -28,7 +28,7 @@ API
    components/deterministic.rst
    components/likelihood.rst
    components/fixedvalue.rst
-   components/series.rst
+   components/data.rst
    components/model.rst
    components/math_op.rst
    components/composable.rst
@@ -40,6 +40,7 @@ API
 
    miscellaneous/build.rst
    miscellaneous/data_components.rst
+   miscellaneous/function_wrapper.rst
 
 .. toctree::
    :maxdepth: 1

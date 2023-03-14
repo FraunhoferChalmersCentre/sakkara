@@ -1,11 +1,10 @@
 import numpy as np
-from numpy import testing
+import numpy.typing as npt
 import pandas as pd
 import pytest
 
 from sakkara.relation import groupset
-from sakkara.relation.group import Group
-from sakkara.relation.representation import Representation
+from sakkara.relation.representation import Representation, TensorRepresentation as TR
 
 """
 Testing relations is performed on the following graph (parents in top):
@@ -159,69 +158,86 @@ def test_relations(gs, graph_dict):
 
 def test_pairing(gs, graph_dict):
     for k, v in graph_dict.items():
-        self_repr = Representation(gs[k], gs[k])
+        self_repr = TR(gs[k], gs[k])
         assert self_repr.groups == [gs[k]]
 
         for child in v['children']:
-            for pair in (Representation(gs[k], gs[child]), Representation(gs[child], gs[k])):
+            for pair in (TR(gs[k], gs[child]), TR(gs[child], gs[k])):
                 assert pair.groups == [gs[child]]
 
         for parent in v['parents']:
-            for pair in (Representation(gs[k], gs[parent]), Representation(gs[parent], gs[k])):
+            for pair in (TR(gs[k], gs[parent]), TR(gs[parent], gs[k])):
                 assert pair.groups == [gs[k]]
 
         for other in v['neither']:
-            pair = Representation(gs[k], gs[other])
+            pair = TR(gs[k], gs[other])
             assert pair.groups == [gs[k], gs[other]]
 
-            pair = Representation(gs[other], gs[k])
+            pair = TR(gs[other], gs[k])
             assert pair.groups == [gs[other], gs[k]]
 
 
-def test_mapping(gs, graph_dict):
-    def test_child_parent(child_repr: Representation, parent_repr: Representation):
+def test_mapping(df, gs, graph_dict):
+    def test_child_parent(child: npt.NDArray, child_repr: Representation, parent: npt.NDArray,
+                          parent_repr: Representation):
 
         with pytest.raises(ValueError):
-            child_repr.map_to(parent_repr)
+            child_repr.map(child, parent_repr)
 
-        mapping = parent_repr.map_to(child_repr)
-        assert all(m.shape == child_repr.get_shape() for m in mapping)
-        assert all(all(np.isin(np.unique(m), np.arange(len(parent_repr.groups[i])))) for i, m in enumerate(mapping))
+        mapped = parent_repr.map(parent, child_repr)
+        assert mapped.shape == child_repr.get_shape()
+        assert mapped.shape == child.shape
+        assert all(v in mapped.ravel() for v in parent.ravel())
 
-    def test_same_representation(a: Representation, b: Representation):
-        mapping = a.map_to(b)
-        assert all(m.shape == b.get_shape() for m in mapping)
-        assert all(all(np.isin(np.unique(m), np.arange(len(a.groups[i])))) for i, m in enumerate(mapping))
+    def test_permuted_representation(x: npt.NDArray, a: Representation, y: npt.NDArray, b: Representation):
+        mapped = a.map(x, b)
+        assert mapped.shape == b.get_shape()
+        assert mapped.shape == y.shape
 
-        mapping = b.map_to(a)
-        assert all(m.shape == a.get_shape() for m in mapping)
-        assert all(all(np.isin(np.unique(m), np.arange(len(b.groups[i])))) for i, m in enumerate(mapping))
+        mapped = b.map(y, a)
+        assert mapped.shape == a.get_shape()
+        assert mapped.shape == x.shape
 
-    def test_unrelated(a: Representation, b: Representation):
+    def test_same_representation(x: npt.NDArray, a: Representation, y: npt.NDArray, b: Representation):
+        mapped = a.map(x, b)
+        assert all(m == xi for m, xi in zip(mapped.ravel(), x.ravel()))
+
+        mapped = b.map(y, a)
+        assert all(m == yi for m, yi in zip(mapped.ravel(), y.ravel()))
+
+    def test_unrelated(x: npt.NDArray, a: Representation, y: npt.NDArray, b: Representation):
         with pytest.raises(ValueError):
-            a.map_to(b)
+            a.map(x, b)
 
         with pytest.raises(ValueError):
-            b.map_to(a)
+            b.map(y, a)
 
     for k, v in graph_dict.items():
-        test_same_representation(Representation(gs[k]), Representation(gs[k]))
-        test_same_representation(Representation(gs[k]), Representation(gs[k], gs[k]))
+        test_same_representation(df[k].unique(), TR(gs[k]), df[k].unique(), TR(gs[k]))
+        test_same_representation(df[k].unique(), TR(gs[k]), df[k].unique(), TR(gs[k], gs[k]))
 
         for child_name in v['children']:
-            test_child_parent(Representation(gs[child_name]), Representation(gs[k]))
-            test_child_parent(Representation(gs[k], gs[child_name]), Representation(gs[k]))
-            test_same_representation(Representation(gs[k], gs[child_name]), Representation(gs[child_name]))
-            test_same_representation(Representation(gs[k], gs[child_name]), Representation(gs[child_name], gs[k]))
+            test_child_parent(df[child_name].unique(), TR(gs[child_name]), df[k].unique(), TR(gs[k]))
+            test_child_parent(df[child_name].unique(), TR(gs[k], gs[child_name]), df[k].unique(), TR(gs[k]))
+            test_same_representation(df[child_name].unique(), TR(gs[k], gs[child_name]), df[child_name].unique(), TR(gs[child_name]))
+            test_same_representation(df[child_name].unique(), TR(gs[k], gs[child_name]), df[child_name].unique(),
+                                     TR(gs[child_name], gs[k]))
 
         for parent_name in v['parents']:
-            test_child_parent(Representation(gs[k]), Representation(gs[parent_name]))
-            test_child_parent(Representation(gs[k], gs[parent_name]), Representation(gs[parent_name]))
-            test_same_representation(Representation(gs[k], gs[parent_name]), Representation(gs[k]))
-            test_same_representation(Representation(gs[k], gs[parent_name]), Representation(gs[parent_name], gs[k]))
+            test_child_parent(df[k].unique(), TR(gs[k]), df[parent_name].unique(), TR(gs[parent_name]))
+            test_child_parent(df[k].unique(), TR(gs[k], gs[parent_name]), df[parent_name].unique(), TR(gs[parent_name]))
+            test_same_representation(df[k].unique(), TR(gs[k], gs[parent_name]), df[k].unique(), TR(gs[k]))
+            test_same_representation(df[k].unique(), TR(gs[k], gs[parent_name]), df[k].unique(), TR(gs[parent_name], gs[k]))
 
         for other_name in v['neither']:
-            test_unrelated(Representation(gs[k]), Representation(gs[other_name]))
-            test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[k]))
-            test_child_parent(Representation(gs[k], gs[other_name]), Representation(gs[other_name]))
-            test_same_representation(Representation(gs[k], gs[other_name]), Representation(gs[other_name], gs[k]))
+            test_unrelated(df[k].unique(), TR(gs[k]), df[other_name].unique(), TR(gs[other_name]))
+
+            ko = np.arange(len(df[k].unique()) * len(df[other_name].unique())).reshape(len(df[k].unique()),
+                                                                                       len(df[other_name].unique()))
+            ok = np.arange(len(df[k].unique()) * len(df[other_name].unique())).reshape(len(df[other_name].unique()),
+                                                                                       len(df[k].unique())) + 1000
+
+            test_child_parent(ko, TR(gs[k], gs[other_name]), df[k].unique(), TR(gs[k]))
+            test_child_parent(ko, TR(gs[k], gs[other_name]), df[other_name].unique(), TR(gs[other_name]))
+            test_same_representation(ko, TR(gs[k], gs[other_name]), ko, TR(gs[k], gs[other_name]))
+            test_permuted_representation(ko, TR(gs[k], gs[other_name]), ok, TR(gs[other_name], gs[k]))
