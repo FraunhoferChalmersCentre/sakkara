@@ -1,4 +1,6 @@
-from typing import Union, Tuple, Any
+import abc
+from abc import ABC
+from typing import Tuple, Any, List, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -8,8 +10,105 @@ from sakkara.relation.group import Group
 
 class Representation:
     """
+    Abstract class for a representation, i.e., class that transforms variables and other elements between different
+    shapes.
+    """
+
+    @abc.abstractmethod
+    def get_shape(self) -> Tuple[int, ...]:
+        """
+        Get the shape of a variable corresponding to a component with this representation
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def merge(self, other):
+        """
+        Create a new `Representation` by adding upp groups from this object and from another.
+
+        :param other: Other `Representation` to merge with
+
+        :return: Merged representation. Note that all groups of the merged has either a twin or a parent group in at
+            least one of the two input representations.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_groups(self) -> List[Group]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_member_array(self, group: Group) -> npt.NDArray[Any]:
+        """
+        Get an array shaped as a variable with this representation, where each value correspond to the member of the
+        input group.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_members(self) -> Tuple[npt.NDArray, ...]:
+        """
+        Get member arrays for all groups of this representation. For documentation of a member array, see
+            :meth:`Representation.get_member_array`.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_member_tuples(self) -> List[Tuple[Any, ...]]:
+        """
+        Get a list of all member tuples of this represention
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def map(self, element: Any, target_representation: 'Representation') -> Any:
+        """
+        Map/transform an element (variable or equivalent) corresponding to this representation to a target
+            representation.
+
+        :param element: The object/variable to transform.
+
+        :param target_representation: The representation that corresponds to the shape the variable should be in.
+
+        :return: The element but transformed to target representation.
+        """
+        raise NotImplementedError
+
+
+class UnrepeatableRepresentation(Representation, ABC):
+    """
+    Simple representation for elements that always have a single value and that can not be repeated.
+    """
+
+    def get_shape(self) -> Tuple[int, ...]:
+        return 1,
+
+    def get_groups(self) -> List[Group]:
+        return []
+
+    def merge(self, other):
+        return other
+
+    def get_member_array(self, group: Group) -> npt.NDArray[Any]:
+        raise ValueError('Fixed representation does not hold any groups')
+
+    def get_members(self) -> Tuple[npt.NDArray, ...]:
+        raise ValueError('Fixed representation does not hold any groups')
+
+    def get_member_tuples(self) -> List[Tuple[Any, ...]]:
+        raise ValueError('Fixed representation does not hold any groups')
+
+    def map(self, element: object, target_representation: 'Representation'):
+        return element
+
+    def __eq__(self, other):
+        return isinstance(other, UnrepeatableRepresentation)
+
+
+class TensorRepresentation(Representation, ABC):
+    """
     Class for a tuple of groups, reduced to its minimal representation. E.g., a parent can be represented by its child,
-    hence when creating a `Representation` object of the two only the child will be added to the tuple.
+    hence when creating a :class:`TensorRepresentation` object of the two only the child will be added to the tuple.
 
     :param \*groups: :class:`Group` objects to include in representation
     """
@@ -39,17 +138,12 @@ class Representation:
             if parent in self.groups:
                 self.groups.remove(parent)
 
+    def get_groups(self) -> List[Group]:
+        return self.groups
+
     def merge(self, other: 'Representation') -> 'Representation':
-        """
-        Create a new `Representation` by adding upp groups from this object and from another.
-
-        :param other: Other `Representation` to merge with
-
-        :return: Merged representation. Note that all groups of the merged has either a twin or a parent group in at
-            least one of the two input representations.
-        """
-        merged = Representation(*self.groups)
-        for group in other.groups:
+        merged = TensorRepresentation(*self.groups)
+        for group in other.get_groups():
             merged.add_group(group)
 
         return merged
@@ -62,24 +156,21 @@ class Representation:
         :return: `True` is self is mappable to target
         """
         target_represents = set()
-        for target_group in target.groups:
+        for target_group in target.get_groups():
             target_represents = target_represents.union(target_group.twins).union(target_group.parents)
         return all(map(lambda t: t in target_represents, self.groups))
 
     def get_shape(self) -> Tuple[int, ...]:
-        """
-        Get the shape of a variable corresponding to a component with this representation
-        """
         return tuple(map(len, self.groups))
 
     def __eq__(self, other: 'Representation'):
-        return len(self.groups) == len(other.groups) and all(map(lambda x, y: x in y.twins, self.groups, other.groups))
+        return len(self.groups) == len(other.get_groups()) and all(
+            map(lambda x, y: x in y.twins, self.groups, other.get_groups()))
 
     def get_member_array(self, group: Group) -> npt.NDArray[Any]:
-        """
-        Get an array shaped as a variable with this representation, where each value correspond to the member of the
-        i:th group.
-        """
+        if group not in self.groups:
+            raise ValueError('Group is not found in this representation')
+
         group_index = self.groups.index(group)
         # Get shape of representation, but target_group excluded
         other_shape = self.get_shape()[:group_index] + self.get_shape()[group_index + 1:]
@@ -92,19 +183,9 @@ class Representation:
 
         return member_array
 
-    def map_to(self, target: 'Representation') -> Union[Tuple[npt.NDArray[int], ...], slice]:
-        """
-        Create indexing for a variable of this representation to another target representation.
-
-        :param target: The representation that corresponds to the shape the variable should be in. Each group of self
-            representation must have a twin or a child in the target representation.
-
-        :return: Tuple of index arrays, or slice object, to be used for indexing on array object. For more information
-            about the format of this tuple, see https://numpy.org/doc/stable/user/basics.indexing.html#advanced-indexing.
-
-        """
+    def map(self, element: object, target: Representation) -> object:
         if self == target:
-            return slice(None)
+            return element
         if not self.is_mappable_to(target):
             raise ValueError(
                 'Representation cannot be mapped to target. Instead do mapping to a representation of this merged with target.')
@@ -112,7 +193,7 @@ class Representation:
         mapping = []
 
         for group in self.groups:
-            for i, target_group in enumerate(target.groups):
+            for i, target_group in enumerate(target.get_groups()):
                 # Match any group of target representation that is either child or twin to this
                 representatives = {group}.union(group.children).union(group.twins)
 
@@ -127,13 +208,14 @@ class Representation:
                     # Finding more representatives not needed
                     break
 
-        return tuple(mapping)
+        return element[tuple(mapping)]
 
-    def get_members(self) -> Tuple[npt.NDArray[Any], ...]:
-        """
-        Get array of members corresponding to the indices of a variable with the representation
-
-        :return: One array per group of representation filled with corresponding member names, so that the i:th array
-            correspond to the i:th group of the representation
-        """
+    def get_members(self) -> Tuple[npt.NDArray, ...]:
         return tuple(map(lambda group: self.get_member_array(group), self.groups))
+
+    def get_member_tuples(self) -> List[Tuple[Any, ...]]:
+        # Get all the member tuples, raveled
+        if len(self.groups) == 1:
+            return [(x,) for x in np.ravel(self.get_members()[0])]
+        else:
+            return [(x,) for x in zip(map(np.ravel, self.get_members()))]

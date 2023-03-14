@@ -7,7 +7,7 @@ from sakkara.model.base import ModelComponent
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
 
-from sakkara.relation.representation import Representation
+from sakkara.relation.representation import TensorRepresentation
 
 S = TypeVar('S', bound=Any)
 T = TypeVar('T', bound=ModelComponent)
@@ -60,9 +60,9 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
                 component.build(groupset)
 
     def build_representation(self, groupset: GroupSet):
-        self.representation = Representation()
-        self.base_representation = Representation()
-        self.components_representation = Representation()
+        self.representation = TensorRepresentation(groupset['global'])
+        self.base_representation = TensorRepresentation(groupset['global'])
+        self.components_representation = TensorRepresentation(groupset['global'])
 
         for g in self.group:
             self.base_representation.add_group(groupset[g])
@@ -71,9 +71,6 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
             self.components_representation = self.components_representation.merge(component.representation)
 
         self.representation = self.base_representation.merge(self.components_representation)
-
-        if len(self.representation.groups) == 0:
-            self.representation.add_group(groupset['global'])
 
     def clear(self):
         self.variable = None

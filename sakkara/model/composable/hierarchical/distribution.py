@@ -4,7 +4,7 @@ from typing import Callable, Optional, Union, Tuple, Any, Iterable
 from sakkara.model.base import ModelComponent
 from sakkara.model.composable.base import T
 from sakkara.model.composable.hierarchical.base import HierarchicalComponent
-from sakkara.model.fixed.base import FixedValueComponent
+from sakkara.model.fixed.base import UnrepeatableComponent
 
 
 class DistributionComponent(HierarchicalComponent[T], ABC):
@@ -42,7 +42,7 @@ class DistributionComponent(HierarchicalComponent[T], ABC):
     def __init__(self, generator: Callable, name: Optional[str] = None, group: Union[str, Tuple[str, ...]] = None,
                  **subcomponents: Any):
         super().__init__(name, group,
-                         subcomponents={k: v if isinstance(v, ModelComponent) else FixedValueComponent(v) for k, v in
+                         subcomponents={k: v if isinstance(v, ModelComponent) else UnrepeatableComponent(v) for k, v in
                                         subcomponents.items()})
         self.generator = generator
 

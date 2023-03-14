@@ -5,8 +5,8 @@ from numpy.random import default_rng
 import arviz as az
 import pymc as pm
 
-from sakkara.model import build, FunctionComponent, DistributionComponent, SeriesComponent, FixedValueComponent, Likelihood, \
-    data_components
+from sakkara.model import build, FunctionComponent, DistributionComponent, DataComponent, Likelihood, data_components, \
+    UnrepeatableComponent
 
 N = 2
 
@@ -35,8 +35,8 @@ def likelihood(df):
                                   name='coeff',
                                   group='g1',
                                   mu=DistributionComponent(
-                               pm.Normal
-                           ),
+                                      pm.Normal
+                                  ),
                                   sigma=DistributionComponent(pm.HalfNormal, sigma=1e-10)
                                   )
 
@@ -44,11 +44,11 @@ def likelihood(df):
                                       name='intercept',
                                       group='g2',
                                       mu=DistributionComponent(
-                                   pm.Normal,
-                                   group='g1',
-                                   mu=DistributionComponent(pm.Normal),
-                                   sigma=DistributionComponent(pm.HalfNormal, sigma=1e-5)
-                               ),
+                                          pm.Normal,
+                                          group='g1',
+                                          mu=DistributionComponent(pm.Normal),
+                                          sigma=DistributionComponent(pm.HalfNormal, sigma=1e-5)
+                                      ),
                                       sigma=DistributionComponent(pm.HalfNormal, sigma=1e-10)
                                       )
 
@@ -67,18 +67,18 @@ def test_build_linreg_model(df, likelihood):
     assert isinstance(likelihood['mu'].args[0].args[0], DistributionComponent)
     assert isinstance(likelihood['mu'].args[0].args[0]['mu'], DistributionComponent)
     assert isinstance(likelihood['mu'].args[0].args[0]['sigma'], DistributionComponent)
-    assert isinstance(likelihood['mu'].args[0].args[0]['sigma']['sigma'], FixedValueComponent)
+    assert isinstance(likelihood['mu'].args[0].args[0]['sigma']['sigma'], UnrepeatableComponent)
 
-    assert isinstance(likelihood['mu'].args[0].args[1], SeriesComponent)
+    assert isinstance(likelihood['mu'].args[0].args[1], DataComponent)
 
     assert isinstance(likelihood['mu'].args[1], DistributionComponent)
     assert isinstance(likelihood['mu'].args[1]['mu'], DistributionComponent)
     assert isinstance(likelihood['mu'].args[1]['sigma'], DistributionComponent)
     assert isinstance(likelihood['mu'].args[1]['mu']['mu'], DistributionComponent)
     assert isinstance(likelihood['mu'].args[1]['mu']['sigma'], DistributionComponent)
-    assert isinstance(likelihood['mu'].args[1]['mu']['sigma']['sigma'], FixedValueComponent)
+    assert isinstance(likelihood['mu'].args[1]['mu']['sigma']['sigma'], UnrepeatableComponent)
 
-    assert isinstance(likelihood['sigma'], FixedValueComponent)
+    assert isinstance(likelihood['sigma'], UnrepeatableComponent)
 
     built_model = build(df, likelihood)
     assert isinstance(built_model, pm.Model)

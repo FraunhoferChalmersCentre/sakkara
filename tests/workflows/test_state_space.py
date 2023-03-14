@@ -6,8 +6,7 @@ from numpy.random import default_rng
 from numpy import testing
 import pytensor.tensor as pt
 
-from sakkara.model import DistributionComponent, data_components, GroupComponent, Likelihood, FunctionComponent, \
-    DeterministicComponent
+from sakkara.model import DistributionComponent, data_components, GroupComponent, Likelihood, f, DeterministicComponent
 from sakkara.model.utils import build
 
 N = 20
@@ -88,7 +87,7 @@ def test_partially_observed_state_space(partially_observed_df):
 
     k = DistributionComponent(pm.Normal, name='diff')
 
-    state = DeterministicComponent('state', FunctionComponent(pt.cumsum, k * dc['x']))
+    state = DeterministicComponent('state', f(pt.cumsum)(k * dc['x']))
 
     likelihood = Likelihood(pm.Normal,
                             mu=state,

@@ -4,8 +4,8 @@ from typing import Callable, Any, Dict, Union, Tuple
 
 import numpy as np
 
-from sakkara.model.fixed.base import FixedValueComponent
-from sakkara.model.fixed.data import SeriesComponent
+from sakkara.model.fixed.base import UnrepeatableComponent as UC
+from sakkara.model.fixed.data import DataComponent
 from sakkara.model.composable.group import GroupComponent
 from sakkara.model.composable.hierarchical.distribution import DistributionComponent
 
@@ -24,7 +24,7 @@ class Likelihood(DistributionComponent, ABC):
 
     def __init__(self,
                  generator: Callable,
-                 observed: SeriesComponent,
+                 observed: DataComponent,
                  name: str = 'likelihood',
                  group: Union[str, Tuple[str, ...]] = 'obs',
                  nan_param_mask: Dict[str, Any] = None,
@@ -47,14 +47,15 @@ class Likelihood(DistributionComponent, ABC):
                 var_mask = nan_param_mask[k] if isinstance(nan_param_mask, dict) else nan_param_mask
 
                 component = GroupComponent(group=group, name=k + '_masked')
+                mask_component = DataComponent(var_mask, 'global')
                 for m in np.argwhere(~np.isnan(observed.values)).flatten():
                     component.add(m, v)
                 for m in np.argwhere(np.isnan(observed.values)).flatten():
-                    component.add(m, FixedValueComponent(value=var_mask, name=f'{k}_{m}_mask'))
+                    component.add(m, mask_component)
                 components[k] = component
 
             non_nandata = np.array([o if not np.isnan(o) else nan_data_mask for o in observed.values])
-            components['observed'] = SeriesComponent(non_nandata, name='masked_' + observed.name)
+            components['observed'] = DataComponent(non_nandata, group, name='masked_' + observed.name)
         else:
             components = kwargs
             components['observed'] = observed

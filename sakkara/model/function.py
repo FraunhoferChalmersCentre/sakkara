@@ -3,11 +3,9 @@ from abc import ABC
 from itertools import chain
 from typing import Callable, Any, Set, Optional
 
-import pytensor.tensor as pt
-
 from sakkara.model.base import ModelComponent
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.representation import Representation
+from sakkara.relation.representation import TensorRepresentation
 
 
 class FunctionComponent(ModelComponent, ABC):
@@ -75,19 +73,13 @@ class FunctionComponent(ModelComponent, ABC):
             counter += 1
 
     def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = Representation()
+        self.representation = TensorRepresentation()
         for comp in chain(self.args, self.kwargs.values()):
             self.representation = self.representation.merge(comp.representation)
 
     def build_variable(self) -> None:
-        def get_mapped_variable(component: ModelComponent) -> pt.TensorVariable:
-            if component.representation.get_shape() == (1,):
-                return component.variable
-            mapping = component.representation.map_to(self.representation)
-            return component.variable[mapping]
-
-        mapped_args = tuple(map(get_mapped_variable, self.args))
-        mapped_kwargs = dict({k: get_mapped_variable(v) for k, v in self.kwargs.items()})
+        mapped_args = tuple([c.representation.map(c.variable, self.representation) for c in self.args])
+        mapped_kwargs = dict({k: c.representation.map(c.variable, self.representation) for k, c in self.kwargs.items()})
         self.variable = self.fct(*mapped_args, **mapped_kwargs)
 
     def retrieve_groups(self) -> Set[str]:
