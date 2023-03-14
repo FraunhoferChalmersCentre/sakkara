@@ -1,9 +1,8 @@
-import re
-
+import numpy as np
 import pytest
 import pymc as pm
 
-from sakkara.model import DistributionComponent as DC, build, f_
+from sakkara.model import DistributionComponent as DC, build, f_, DataComponent
 
 
 @pytest.mark.usefixtures('simple_df')
@@ -99,3 +98,15 @@ def test_args_and_kwargs(simple_df):
     assert c.get_name().split('<')[0] == 'mu_r_'
     assert c.get_name().split('>')[-1] == '_z'
     assert all([pytest.approx(246) == z for z in pm.draw(d.variable)])
+
+
+@pytest.mark.usefixtures('simple_df')
+def test_tensor_fct(simple_df):
+    x = DataComponent(np.repeat(np.arange(5), 20).reshape(5, 20), group=('sensor', 'time'))
+
+    y = f_(np.cumsum)(x, axis=1)
+
+    _ = build(simple_df, y)
+
+    assert y.variable.shape == (5, 20)
+    assert all(y.variable[i, j] == i * (j + 1) for j in range(20) for i in range(5))

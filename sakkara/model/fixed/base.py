@@ -24,7 +24,7 @@ class FixedValueComponent(MathOpBase, ABC):
         super().__init__()
         self.group = (group,) if isinstance(group, str) else group
         self.name = name
-        self.values = np.array(value).reshape(1) if isinstance(value, (float, int)) else value
+        self.values = value
 
     def set_name(self, name: str) -> None:
         self.name = name
