@@ -7,7 +7,7 @@ import numpy.typing as npt
 
 from sakkara.model.fixed.base import FixedValueComponent
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.representation import TensorRepresentation
+from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class DataComponent(FixedValueComponent, ABC):
@@ -27,7 +27,7 @@ class DataComponent(FixedValueComponent, ABC):
             super().__init__(np.array([data]), group, name)
 
     def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = TensorRepresentation()
+        self.representation = MinimalTensorRepresentation()
         for g in self.group:
             self.representation.add_group(groupset[g])
 

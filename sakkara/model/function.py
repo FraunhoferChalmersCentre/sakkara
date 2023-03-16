@@ -5,7 +5,7 @@ from typing import Callable, Any, Set, Optional
 
 from sakkara.model.base import ModelComponent
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.representation import TensorRepresentation
+from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class FunctionComponent(ModelComponent, ABC):
@@ -74,9 +74,10 @@ class FunctionComponent(ModelComponent, ABC):
             counter += 1
 
     def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = TensorRepresentation()
+        self.representation = MinimalTensorRepresentation()
         for comp in chain(self.args, self.kwargs.values()):
-            self.representation = self.representation.merge(comp.representation)
+            self.representation = MinimalTensorRepresentation(*self.representation.get_groups(),
+                                                              *comp.representation.get_groups())
 
     def build_variable(self) -> None:
         mapped_args = tuple([c.representation.map(c.variable, self.representation) for c in self.args])

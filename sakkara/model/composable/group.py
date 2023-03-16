@@ -10,6 +10,7 @@ from sakkara.model.fixed.data import DataComponent
 from sakkara.model.base import ModelComponent
 from sakkara.model.composable.base import Composable, T
 from sakkara.relation.groupset import GroupSet
+from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class GroupComponent(Composable[Tuple[str, ...], T], ABC):
@@ -45,6 +46,20 @@ class GroupComponent(Composable[Tuple[str, ...], T], ABC):
 
     def prebuild(self, groupset: GroupSet) -> None:
         self.build_components(groupset)
+
+    def build_representation(self, groupset: GroupSet):
+        self.base_representation = MinimalTensorRepresentation()
+        self.components_representation = MinimalTensorRepresentation(groupset['global'])
+
+        for g in self.group:
+            self.base_representation.add_group(groupset[g])
+
+        for component in self.subcomponents.values():
+            self.components_representation = MinimalTensorRepresentation(*component.representation.get_groups(),
+                                                                         *self.components_representation.get_groups())
+
+        self.representation = MinimalTensorRepresentation(*self.base_representation.get_groups(),
+                                                          *self.components_representation.get_groups())
 
     def build_variable(self) -> None:
         member_tuples = self.base_representation.get_member_tuples()

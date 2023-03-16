@@ -1,8 +1,9 @@
 import pytest
 import pymc as pm
 import numpy as np
+import pytensor.tensor as pt
 
-from sakkara.model import DistributionComponent as DC, DeterministicComponent as DetC, build, DataComponent
+from sakkara.model import DistributionComponent as DC, DeterministicComponent as DetC, build, DataComponent, f_
 
 
 @pytest.mark.usefixtures('simple_df')
@@ -35,7 +36,7 @@ def test_twin(simple_df):
 
     _ = build(simple_df, d)
 
-    assert c.dims() == ('obs', )
+    assert c.dims() == ('obs',)
     assert all(x == pytest.approx(y) for x, y in
                zip(pm.draw(c.variable), np.arange(len(simple_df)) + np.arange(10, 10 + len(simple_df))))
 
@@ -48,5 +49,39 @@ def test_twin(simple_df):
 
     _ = build(simple_df, d)
 
-    assert c.dims() == ('time_2', )
+    assert c.dims() == ('time_2',)
     assert all(x == pytest.approx(y) for x, y in zip(pm.draw(c.variable), np.arange(5) + np.arange(10, 15)))
+
+
+@pytest.mark.usefixtures('simple_df')
+def test_fct_wrapping(simple_df):
+    x = DC(pm.Uniform, group='time', lower=[1, 2, 3, 4, 5], upper=[1, 2, 3, 4, 5])
+
+    c = DC(pm.Uniform, name='c', lower=1, upper=1)
+
+    y = DetC('y', c + f_(pt.cumsum)(x))
+
+    _ = build(simple_df, y)
+
+    assert pm.draw(c.variable).shape == (1,)
+    assert tuple(map(str, c.representation.get_groups())) == ('global',)
+    assert tuple(map(str, y.representation.get_groups())) == ('time',)
+    assert pm.draw(y.variable).shape == (5,)
+    assert all(pytest.approx(pm.draw(y.variable)[i - 1]) == 1 + i * (1 + i) / 2 for i in range(1, 6))
+
+
+@pytest.mark.usefixtures('simple_df')
+def test_reshaping(simple_df):
+    x = DataComponent(np.repeat(np.arange(4), 5).reshape(4, 5), group=('sensor', 'time'))
+
+    c = DC(pm.Uniform, name='c', lower=np.arange(20), upper=np.arange(20), group='obs')
+
+    y = DetC('y', c + x, group=('time', 'sensor'))
+
+    _ = build(simple_df, y)
+
+    assert pm.draw(c.variable).shape == (20,)
+    assert tuple(map(str, c.representation.get_groups())) == ('obs',)
+    assert tuple(map(str, y.representation.get_groups())) == ('time', 'sensor')
+    assert pm.draw(y.variable).shape == (5, 4)
+    assert all(pm.draw(y.variable)[j, i] == i * 6 + j for j in range(5) for i in range(4))
