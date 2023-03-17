@@ -7,7 +7,7 @@ import numpy.typing as npt
 
 from sakkara.model.fixed.base import FixedValueComponent
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.representation import TensorRepresentation
+from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class DataComponent(FixedValueComponent, ABC):
@@ -27,19 +27,20 @@ class DataComponent(FixedValueComponent, ABC):
             super().__init__(np.array([data]), group, name)
 
     def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = TensorRepresentation()
+        self.representation = MinimalTensorRepresentation()
         for g in self.group:
             self.representation.add_group(groupset[g])
 
 
-def data_components(df: pd.DataFrame) -> Dict[str, DataComponent]:
+def data_components(df: pd.DataFrame, group: Union[str, Tuple[str, ...]] = 'obs') -> Dict[str, DataComponent]:
     """
     Generate :class:`DataComponent` objects from a :class:`pandas.DataFrame`
 
     :param df: DataFrame to generate components from.
+    :param group: Group to apply, i.e., each member of the given group corresponds to one row of the dataframe.
 
 
     :return: Dictionary of {<column name in DataFrame>: :class:`DataComponent`}
 
     """
-    return {k: DataComponent(df[k].values, 'obs', k) for k in df}
+    return {k: DataComponent(df[k].values, group, k) for k in df}

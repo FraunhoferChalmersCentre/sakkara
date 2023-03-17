@@ -103,7 +103,7 @@ def test_rebuild_model(df, likelihood):
         saved_variable = likelihood.variable
         _ = pm.fit(1, method='advi')
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         with build(df, likelihood):
             _ = pm.fit(1, method='advi')
 

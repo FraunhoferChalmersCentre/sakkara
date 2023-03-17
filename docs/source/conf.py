@@ -2,7 +2,7 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import pkg_resources
+import importlib.metadata
 import datetime
 
 # -- Project information -----------------------------------------------------
@@ -11,7 +11,7 @@ import datetime
 project = 'Sakkara'
 copyright = f'{datetime.date.today().year}, Fraunhofer-Chalmers Centre'
 author = 'Fraunhofer-Chalmers Centre'
-release = pkg_resources.get_distribution('sakkara').version
+release = importlib.metadata.version('sakkara')
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

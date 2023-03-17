@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from sakkara.relation import groupset
-from sakkara.relation.representation import Representation, TensorRepresentation as TR
+from sakkara.relation.representation import Representation, MinimalTensorRepresentation as TR
 
 """
 Testing relations is performed on the following graph (parents in top):
@@ -35,8 +35,8 @@ def df():
             'a': map(str, np.repeat(np.arange(2), 16)),
             'b': map(str, np.repeat(np.arange(4), 8)),
             'c': map(str, np.repeat(np.arange(8), 4)),
-            'd': map(str, np.repeat(np.arange(3), [16, 5, 11])),
-            'e': np.repeat(np.arange(2), [21, 11]),
+            'd': map(str, np.array([0] * 5 + [1] * 11 + [0] * 2 + [1] * 14) + 2 * np.repeat(np.arange(2), 16)),
+            'e': np.array([0] * 5 + [1] * 11 + [0] * 2 + [1] * 14),
             'o': np.arange(32),
         }
     )
@@ -113,7 +113,7 @@ def test_init_groups(gs):
     assert len(gs['a']) == 2
     assert len(gs['b']) == 4
     assert len(gs['c']) == 8
-    assert len(gs['d']) == 3
+    assert len(gs['d']) == 4
     assert len(gs['e']) == 2
     assert len(gs['o']) == 32
 
@@ -125,7 +125,7 @@ def test_get_coords(gs):
     assert list(coords['a']) == list(map(str, np.arange(2)))
     assert list(coords['b']) == list(map(str, np.arange(4)))
     assert list(coords['c']) == list(map(str, np.arange(8)))
-    assert list(coords['d']) == list(map(str, np.arange(3)))
+    assert list(coords['d']) == list(map(str, np.arange(4)))
     assert list(coords['e']) == list(np.arange(2))
     assert list(coords['o']) == list(np.arange(32))
 
@@ -219,7 +219,8 @@ def test_mapping(df, gs, graph_dict):
         for child_name in v['children']:
             test_child_parent(df[child_name].unique(), TR(gs[child_name]), df[k].unique(), TR(gs[k]))
             test_child_parent(df[child_name].unique(), TR(gs[k], gs[child_name]), df[k].unique(), TR(gs[k]))
-            test_same_representation(df[child_name].unique(), TR(gs[k], gs[child_name]), df[child_name].unique(), TR(gs[child_name]))
+            test_same_representation(df[child_name].unique(), TR(gs[k], gs[child_name]), df[child_name].unique(),
+                                     TR(gs[child_name]))
             test_same_representation(df[child_name].unique(), TR(gs[k], gs[child_name]), df[child_name].unique(),
                                      TR(gs[child_name], gs[k]))
 
@@ -227,7 +228,8 @@ def test_mapping(df, gs, graph_dict):
             test_child_parent(df[k].unique(), TR(gs[k]), df[parent_name].unique(), TR(gs[parent_name]))
             test_child_parent(df[k].unique(), TR(gs[k], gs[parent_name]), df[parent_name].unique(), TR(gs[parent_name]))
             test_same_representation(df[k].unique(), TR(gs[k], gs[parent_name]), df[k].unique(), TR(gs[k]))
-            test_same_representation(df[k].unique(), TR(gs[k], gs[parent_name]), df[k].unique(), TR(gs[parent_name], gs[k]))
+            test_same_representation(df[k].unique(), TR(gs[k], gs[parent_name]), df[k].unique(),
+                                     TR(gs[parent_name], gs[k]))
 
         for other_name in v['neither']:
             test_unrelated(df[k].unique(), TR(gs[k]), df[other_name].unique(), TR(gs[other_name]))
@@ -241,3 +243,5 @@ def test_mapping(df, gs, graph_dict):
             test_child_parent(ko, TR(gs[k], gs[other_name]), df[other_name].unique(), TR(gs[other_name]))
             test_same_representation(ko, TR(gs[k], gs[other_name]), ko, TR(gs[k], gs[other_name]))
             test_permuted_representation(ko, TR(gs[k], gs[other_name]), ok, TR(gs[other_name], gs[k]))
+
+        test_permuted_representation(np.arange(4), TR(gs['d']), np.arange(4).reshape(2, 2), TR(gs['a'], gs['e']))

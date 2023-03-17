@@ -1,11 +1,11 @@
 import operator
 from abc import ABC
 from itertools import chain
-from typing import Callable, Any, Set, Optional
+from typing import Callable, Any, Set, Optional, Tuple
 
 from sakkara.model.base import ModelComponent
 from sakkara.relation.groupset import GroupSet
-from sakkara.relation.representation import TensorRepresentation
+from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class FunctionComponent(ModelComponent, ABC):
@@ -26,11 +26,13 @@ class FunctionComponent(ModelComponent, ABC):
           Keyword argument passed to fct. If object does not inherit ``ModelComponent``, you may wrap it with :class:`sakkara.model.UnrepeatableComponent`
     """
 
-    def __init__(self, fct: Callable[[Any, ...], Any], *args: ModelComponent, **kwargs: ModelComponent):
+    def __init__(self, fct: Callable[[Any, ...], Any], output_group: Optional[Tuple[str,]], *args: ModelComponent,
+                 **kwargs: ModelComponent):
         super().__init__()
         self.args = args
         self.kwargs = kwargs
         self.fct = fct
+        self.output_group = output_group
 
     def get_name(self) -> Optional[str]:
         for comp in chain(self.args, self.kwargs.values()):
@@ -74,13 +76,19 @@ class FunctionComponent(ModelComponent, ABC):
             counter += 1
 
     def build_representation(self, groupset: GroupSet) -> None:
-        self.representation = TensorRepresentation()
+        self.input_representation = MinimalTensorRepresentation()
         for comp in chain(self.args, self.kwargs.values()):
-            self.representation = self.representation.merge(comp.representation)
+            self.input_representation = MinimalTensorRepresentation(*self.input_representation.get_groups(),
+                                                                    *comp.representation.get_groups())
+        if self.output_group is None:
+            self.representation = self.input_representation
+        else:
+            self.representation = MinimalTensorRepresentation(*tuple(map(lambda g: groupset[g], self.output_group)))
 
     def build_variable(self) -> None:
-        mapped_args = tuple([c.representation.map(c.variable, self.representation) for c in self.args])
-        mapped_kwargs = dict({k: c.representation.map(c.variable, self.representation) for k, c in self.kwargs.items()})
+        mapped_args = tuple([c.representation.map(c.variable, self.input_representation) for c in self.args])
+        mapped_kwargs = dict(
+            {k: c.representation.map(c.variable, self.input_representation) for k, c in self.kwargs.items()})
         self.variable = self.fct(*mapped_args, **mapped_kwargs)
 
     def retrieve_groups(self) -> Set[str]:
@@ -92,10 +100,10 @@ class FunctionComponent(ModelComponent, ABC):
     @staticmethod
     def math_op(fct: Callable, left: Any, right: Any) -> ModelComponent:
         if isinstance(left, ModelComponent) and isinstance(right, ModelComponent):
-            return FunctionComponent(fct, left, right)
+            return FunctionComponent(fct, None, left, right)
         if isinstance(left, ModelComponent):
-            return FunctionComponent(lambda x: fct(x, right), left)
-        return FunctionComponent(lambda x: fct(left, x), right)
+            return FunctionComponent(lambda x: fct(x, right), None, left)
+        return FunctionComponent(lambda x: fct(left, x), None, right)
 
     def __add__(self, other: Any) -> ModelComponent:
         return self.math_op(operator.add, self, other)
@@ -122,4 +130,4 @@ class FunctionComponent(ModelComponent, ABC):
         return self.math_op(operator.truediv, other, self)
 
     def __neg__(self):
-        return FunctionComponent(operator.neg, self)
+        return FunctionComponent(operator.neg, None, self)
