@@ -61,6 +61,11 @@ class GroupComponent(Composable[Tuple[str, ...], T], ABC):
         self.representation = MinimalTensorRepresentation(*self.base_representation.get_groups(),
                                                           *self.components_representation.get_groups())
 
+        if self.base_representation.get_groups() != self.representation.get_groups()[
+                                                    :len(self.base_representation.get_groups())]:
+            raise ValueError(
+                'The group value specified for this GroupComponent have children among the component groups')
+
     def build_variable(self) -> None:
         member_tuples = self.base_representation.get_member_tuples()
 
@@ -79,7 +84,7 @@ class GroupComponent(Composable[Tuple[str, ...], T], ABC):
             # Get the component
             component = self.subcomponents[member_tuple]
             # Get the variable, re-order to the representation and flatten
-            member_variable = component.representation.map(component.variable, self.representation)
+            member_variable = component.representation.map(component.variable, self.representation).ravel()
 
             # Mask all the entries of the group variable (with self.representation) corresponding to this member
             mask = np.ones(np.prod(self.representation.get_shape()), dtype=bool)
