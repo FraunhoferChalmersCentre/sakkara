@@ -32,14 +32,15 @@ class DataComponent(FixedValueComponent, ABC):
             self.representation.add_group(groupset[g])
 
 
-def data_components(df: pd.DataFrame) -> Dict[str, DataComponent]:
+def data_components(df: pd.DataFrame, group: Union[str, Tuple[str, ...]] = 'obs') -> Dict[str, DataComponent]:
     """
     Generate :class:`DataComponent` objects from a :class:`pandas.DataFrame`
 
     :param df: DataFrame to generate components from.
+    :param group: Group to apply, i.e., each member of the given group corresponds to one row of the dataframe.
 
 
     :return: Dictionary of {<column name in DataFrame>: :class:`DataComponent`}
 
     """
-    return {k: DataComponent(df[k].values, 'obs', k) for k in df}
+    return {k: DataComponent(df[k].values, group, k) for k in df}

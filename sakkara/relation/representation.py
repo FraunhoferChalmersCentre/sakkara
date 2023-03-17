@@ -37,7 +37,7 @@ class Representation:
     def get_members(self) -> Tuple[npt.NDArray, ...]:
         """
         Get member arrays for all groups of this representation. For documentation of a member array, see
-            :meth:`Representation.get_member_array`.
+        :meth:`Representation.get_member_array`.
         """
         raise NotImplementedError
 
@@ -52,7 +52,7 @@ class Representation:
     def map(self, element: Any, target_representation: 'Representation') -> Any:
         """
         Map/transform an element (variable or equivalent) corresponding to this representation to a target
-            representation.
+        representation.
 
         :param element: The object/variable to transform.
 
@@ -96,7 +96,7 @@ def subset_prod(remain: int, candidates: npt.NDArray[Group]) -> Tuple[bool, npt.
         arr.append(c)
         return ok, arr
     else:
-        # c can not be in solution, start over with reduced list
+        # c can not be in solution, start over with reduced list of candidates
         return subset_prod(remain, candidates[ix + 1:])
 
 
@@ -152,11 +152,10 @@ class UnrepeatableRepresentation(Representation, ABC):
 
 class TensorRepresentation(Representation, ABC):
     """
-        Class for a tuple of groups, reduced to its minimal representation. E.g., a parent can be represented by its child,
-        hence when creating a :class:`TensorRepresentation` object of the two only the child will be added to the tuple.
+    Class for representation shapes corresponding to sequneces of groups.
 
-        :param \*groups: :class:`Group` objects to include in representation
-        """
+    :param \*groups: :class:`Group` objects to include in representation
+    """
 
     def __init__(self, *groups: 'Group'):
         self.groups = []
@@ -165,6 +164,9 @@ class TensorRepresentation(Representation, ABC):
 
     @abc.abstractmethod
     def add_group(self, group: Group):
+        """
+        Add group to the representation.
+        """
         raise NotImplementedError
 
     def get_groups(self) -> List[Group]:
@@ -265,13 +267,14 @@ class TensorRepresentation(Representation, ABC):
 
 
 class MinimalTensorRepresentation(TensorRepresentation, ABC):
+    """
+    Tensor representation that always keeps the minimal set of groups needed. E.g., groups will not be added to this
+    representation if there already is a twin or a child in the representation. When adding a group that has a
+    parent in the representation, the group will be added and the parent will be removed. This class is currently
+    the only implementation of TensorRepresentation.
+    """
 
     def add_group(self, group: Group) -> None:
-        """
-        Add group to the representation. It will not be added if there already is a twin or a child in
-        the representation. If there is a parent to the group in the representation, the group will be added and the
-        parent will be removed.
-        """
         # Check that group is not already represented by twin or child
         representatives = group.twins.union(group.children)
         if any(map(lambda t: t in representatives, self.groups)):
