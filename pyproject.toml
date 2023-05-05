@@ -6,7 +6,7 @@ authors = ["Henrik Håkansson <henrik.hakansson@fcc.chalmers.se>", "Anders Sjöb
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pymc = "^5.0.0"
+pymc = "^5"
 numpy = "^1.23"
 pandas = "^1.4"
 pytensor = "^2.9.1"

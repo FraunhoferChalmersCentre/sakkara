@@ -62,6 +62,10 @@ class ModelComponent:
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
+        raise NotImplementedError
+
     def build(self, groupset: GroupSet) -> None:
         """
         Method to call for building variables from the component. Will chronological order call

@@ -1,8 +1,10 @@
-from typing import Set, Any, Tuple, Callable, Union, List
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import pymc as pm
+from pymc.data import minibatch_index
 
 
 class Group:
@@ -19,6 +21,7 @@ class Group:
         self.children = set()
         self.twins = {self}
         self.mapping = pd.DataFrame(index=members, data={name: np.arange(len(members))})
+        self.minibatch = None
 
     def add_child(self, child: 'Group') -> None:
         """
@@ -47,6 +50,15 @@ class Group:
         """
         self.twins.add(twin)
         self.mapping[twin.name] = np.arange(len(self.mapping))
+
+    def get_minibatch(self, batch_size):
+        if self.minibatch is None:
+            self.minibatch = minibatch_index(0, len(self), size=(batch_size,))
+        return self.minibatch
+
+    def clear_minibatch(self):
+        self.minibatch = None
+
 
     def __str__(self):
         return self.name

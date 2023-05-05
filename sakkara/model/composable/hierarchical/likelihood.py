@@ -4,7 +4,6 @@ from typing import Callable, Any, Dict, Union, Tuple
 
 import numpy as np
 
-from sakkara.model.fixed.base import UnrepeatableComponent as UC
 from sakkara.model.fixed.data import DataComponent
 from sakkara.model.composable.group import GroupComponent
 from sakkara.model.composable.hierarchical.distribution import DistributionComponent
@@ -61,3 +60,19 @@ class Likelihood(DistributionComponent, ABC):
             components['observed'] = observed
 
         super().__init__(generator, name, group, **components)
+
+
+class MinibatchLikelihood(Likelihood):
+    def __init__(self, generator: Callable,
+                 observed: DataComponent,
+                 batch_size: int,
+                 name: str = 'likelihood',
+                 group: str = 'obs',
+                 nan_param_mask: Dict[str, Any] = None,
+                 nan_data_mask: Any = None,
+                 **kwargs: Any):
+        kwargs['total_size'] = len(observed.values)
+        super().__init__(generator, observed, name, group, nan_param_mask, nan_data_mask, **kwargs)
+
+        for k, v in self.subcomponents.items():
+            self.subcomponents[k] = v.to_minibatch(batch_size, group)

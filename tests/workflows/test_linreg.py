@@ -87,7 +87,7 @@ def test_build_linreg_model(df, likelihood):
 
     assert pm.draw(likelihood['mu'].variable).shape == (N * 4,)
     assert pm.draw(likelihood['mu'].args[0].variable).shape == (N * 4,)
-    assert likelihood['mu'].args[0].args[1].variable.shape == (N * 4,)
+    assert pm.draw(likelihood['mu'].args[0].args[1].variable).shape == (N * 4,)
     assert pm.draw(likelihood['mu'].args[0].args[0].variable).shape == (2,)
     assert pm.draw(likelihood['mu'].args[0].args[0]['mu'].variable).shape == (1,)
     assert pm.draw(likelihood['mu'].args[0].args[0]['sigma'].variable).shape == (1,)
@@ -113,7 +113,7 @@ def test_rebuild_model(df, likelihood):
         assert likelihood.variable != saved_variable
 
 
-def test_sampling(df, likelihood):
+def test_fit(df, likelihood):
     with build(df, likelihood):
         approx = pm.fit(n=10000, method='advi', random_seed=1000)
 

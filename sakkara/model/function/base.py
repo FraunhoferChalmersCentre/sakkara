@@ -97,6 +97,11 @@ class FunctionComponent(ModelComponent, ABC):
             group = group.union(component.retrieve_groups())
         return group
 
+    def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
+        self.args = [m.to_minibatch(batch_size, group) for m in self.args]
+        self.kwargs = {k: v.to_minibatch(batch_size, group) for k, v in self.kwargs.items()}
+        return self
+
     @staticmethod
     def math_op(fct: Callable, left: Any, right: Any) -> ModelComponent:
         if isinstance(left, ModelComponent) and isinstance(right, ModelComponent):

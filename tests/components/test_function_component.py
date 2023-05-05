@@ -103,11 +103,11 @@ def test_args_and_kwargs(simple_df):
 
 @pytest.mark.usefixtures('simple_df')
 def test_tensor_fct(simple_df):
-    x = DataComponent(np.repeat(np.arange(5), 4).reshape(5, 4), group=('time', 'sensor'))
+    x = DataComponent(np.repeat(np.arange(5), 4).reshape(5, 4), group=('time', 'sensor'), name='x')
 
     c = DC(pm.Uniform, name='c', lower=1, upper=1)
 
-    y = c + f_(np.cumsum)(x, axis=1)
+    y = c + f_(pt.cumsum)(x, axis=1)
 
     _ = build(simple_df, y)
 
