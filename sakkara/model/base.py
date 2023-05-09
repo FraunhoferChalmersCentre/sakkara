@@ -64,6 +64,9 @@ class ModelComponent:
 
     @abc.abstractmethod
     def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
+        """
+        Convert the component to counterpart suitable for mini-batches
+        """
         raise NotImplementedError
 
     def build(self, groupset: GroupSet) -> None:

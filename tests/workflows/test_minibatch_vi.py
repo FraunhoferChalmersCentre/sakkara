@@ -32,7 +32,7 @@ def test_hierarchical_minibatch(udf, xdf):
     k = DC(pm.Normal, name='k', group='g')
     predicted = k * udc['u']
 
-    likelihood = MinibatchLikelihood(pm.Normal, xdc['y'], batch_size=5, mu=predicted, sigma=1e-15)
+    likelihood = MinibatchLikelihood(pm.Normal, xdc['y'], batch_size=10, mu=predicted, sigma=1e-15)
 
     with build(xdf, likelihood):
         approx = pm.fit(n=10000, random_seed=100)

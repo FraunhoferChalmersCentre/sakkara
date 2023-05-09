@@ -63,6 +63,17 @@ class Likelihood(DistributionComponent, ABC):
 
 
 class MinibatchLikelihood(Likelihood):
+    """
+        Likelihood to use if minibatch is used. Requires iid data.
+
+        :param generator: PyMC callable for distribution to use.
+        :param observed: Data to input as observed keyword in PyMC.
+        :param batch_size: Size of mini-batch (# of observations per evaluation)
+        :param name: Name of the corresponding variable to register in PyMC.
+        :param group: Group of which the component is defined for.
+        :param nan_param_mask: Masked distribution parameters to use for rows with `Nan`, must be defined for each keyword argument entered. Required if there are `Nan` in observed.
+        :param nan_data_mask: Masked observed value to use for rows with `Nan`. Required if there are `Nan` in observed.
+        """
     def __init__(self, generator: Callable,
                  observed: DataComponent,
                  batch_size: int,

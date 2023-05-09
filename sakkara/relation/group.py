@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import pymc as pm
+import pytensor as pt
 from pymc.data import minibatch_index
 
 
@@ -51,12 +51,18 @@ class Group:
         self.twins.add(twin)
         self.mapping[twin.name] = np.arange(len(self.mapping))
 
-    def get_minibatch(self, batch_size):
+    def get_minibatch(self, batch_size) -> pt.tensor.TensorVariable:
+        """
+        Get a PyMC minibatch variable created from this group. Creates a new instance if not already created.
+        """
         if self.minibatch is None:
             self.minibatch = minibatch_index(0, len(self), size=(batch_size,))
         return self.minibatch
 
-    def clear_minibatch(self):
+    def clear_minibatch(self) -> None:
+        """
+        Reset the minibatch variable of this group.
+        """
         self.minibatch = None
 
 

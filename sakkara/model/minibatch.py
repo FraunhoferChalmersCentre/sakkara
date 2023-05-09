@@ -9,6 +9,13 @@ from sakkara.relation.representation import MinimalTensorRepresentation
 
 
 class MinibatchComponent(MathOpBase, ABC):
+    """
+    Wrapper component for mini-batching of any (repeatable component)
+
+    :param component: Component to be wrapped.
+    :param batch_size: Batch size of the mini-batch.
+    :param group: Group to apply mini-batching on.
+    """
     def __init__(self, component: ModelComponent, batch_size: int, group: str):
         super().__init__()
         self.component = component
