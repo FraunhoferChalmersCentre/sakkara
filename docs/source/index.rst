@@ -33,6 +33,7 @@ API
    components/math_op.rst
    components/composable.rst
    components/hierarchical.rst
+   components/minibatch.rst
 
 .. toctree::
    :maxdepth: 1

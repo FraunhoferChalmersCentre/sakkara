@@ -1,11 +1,14 @@
 from abc import ABC
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, Optional
 
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
+import pymc as pm
 
+from sakkara.model.base import ModelComponent
 from sakkara.model.fixed.base import FixedValueComponent
+from sakkara.model.minibatch import MinibatchComponent
 from sakkara.relation.groupset import GroupSet
 from sakkara.relation.representation import MinimalTensorRepresentation
 
@@ -26,10 +29,19 @@ class DataComponent(FixedValueComponent, ABC):
         else:
             super().__init__(np.array([data]), group, name)
 
+    def get_name(self) -> Optional[str]:
+        return self.name
+
     def build_representation(self, groupset: GroupSet) -> None:
         self.representation = MinimalTensorRepresentation()
         for g in self.group:
             self.representation.add_group(groupset[g])
+
+    def build_variable(self) -> None:
+        self.variable = pm.Data(self.name, self.values)
+
+    def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
+        return MinibatchComponent(self, batch_size, group)
 
 
 def data_components(df: pd.DataFrame, group: Union[str, Tuple[str, ...]] = 'obs') -> Dict[str, DataComponent]:

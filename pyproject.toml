@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "sakkara"
-version = "0.5.3"
+version = "0.6.0"
 description = "Tools for simplified creation of PyMC models"
 authors = ["Henrik Håkansson <henrik.hakansson@fcc.chalmers.se>", "Anders Sjöberg <anders.sjoberg@fcc.chalmers.se>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pymc = "^5.0.0"
+pymc = "^5"
 numpy = "^1.23"
 pandas = "^1.4"
 pytensor = "^2.9.1"

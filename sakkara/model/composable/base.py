@@ -4,6 +4,7 @@ from functools import cache
 from typing import Generic, Optional, Union, Tuple, Any, Dict, Set, TypeVar
 
 from sakkara.model.base import ModelComponent
+from sakkara.model.minibatch import MinibatchComponent
 from sakkara.model.math_op import MathOpBase
 from sakkara.relation.groupset import GroupSet
 
@@ -43,6 +44,9 @@ class Composable(MathOpBase, ABC, Generic[S, T]):
     @abc.abstractmethod
     def __getitem__(self, item: Any) -> T:
         raise NotImplementedError
+
+    def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
+        return MinibatchComponent(self, batch_size, group)
 
     def get_name(self) -> Optional[str]:
         return self.name

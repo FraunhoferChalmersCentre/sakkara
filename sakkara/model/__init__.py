@@ -1,5 +1,5 @@
 from sakkara.model.composable.group import GroupComponent
-from sakkara.model.composable.hierarchical.likelihood import Likelihood
+from sakkara.model.composable.hierarchical.likelihood import Likelihood, MinibatchLikelihood
 from sakkara.model.composable.hierarchical.distribution import DistributionComponent
 from sakkara.model.composable.hierarchical.deterministic import DeterministicComponent
 from sakkara.model.fixed.base import UnrepeatableComponent

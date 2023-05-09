@@ -1,4 +1,4 @@
 .. title:: Likelihood
 
 .. automodule:: sakkara.model
-    :members: Likelihood
+    :members: Likelihood, MinibatchLikelihood

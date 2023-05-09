@@ -22,7 +22,9 @@ def test_fixed_values(simple_df):
 def test_unrelated_groups(simple_df):
     gc = GC('sensor', 'gc', {k: DC(pm.Uniform, group='time', lower=i, upper=i) for i, k in enumerate('stuv')})
 
-    _ = build(simple_df, gc)
+    x = gc + DC(pm.Uniform, 'x', lower=1, upper=1, group='building')
+
+    _ = build(simple_df, x)
 
     assert [str(g) for g in gc.representation.get_groups()] == ['sensor', 'time']
     assert pm.draw(gc.variable).shape == (4, 5)
