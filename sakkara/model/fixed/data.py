@@ -38,7 +38,7 @@ class DataComponent(FixedValueComponent, ABC):
             self.representation.add_group(groupset[g])
 
     def build_variable(self) -> None:
-        self.variable = pm.Data(self.name, self.values)
+        self.variable = pm.ConstantData(self.name, self.values)
 
     def to_minibatch(self, batch_size: int, group: str) -> 'ModelComponent':
         return MinibatchComponent(self, batch_size, group)

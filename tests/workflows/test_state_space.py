@@ -6,7 +6,8 @@ from numpy.random import default_rng
 from numpy import testing
 import pytensor.tensor as pt
 
-from sakkara.model import DistributionComponent, data_components, GroupComponent, Likelihood, f_, DeterministicComponent
+from sakkara.model import DistributionComponent, data_components, GroupComponent, Likelihood, f_, Reshaper, \
+    DeterministicComponent
 from sakkara.model.utils import build
 
 N = 20
