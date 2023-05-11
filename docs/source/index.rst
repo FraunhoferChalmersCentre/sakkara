@@ -34,6 +34,7 @@ API
    components/composable.rst
    components/hierarchical.rst
    components/minibatch.rst
+   components/reshaper.rst
 
 .. toctree::
    :maxdepth: 1

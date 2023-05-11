@@ -3,7 +3,8 @@ import pytest
 import pymc as pm
 
 from sakkara.model import data_components, DistributionComponent as DC, MinibatchLikelihood, \
-    build, Likelihood, DeterministicComponent, Reshaper
+    build, Likelihood, DeterministicComponent, FunctionComponent
+from sakkara.model.deterministic import MinibatchDeterministic
 from sakkara.model.minibatch import MinibatchComponent
 
 
@@ -23,15 +24,18 @@ def test_minibatch(udf, xdf):
     assert pm.draw(mbl.variable).shape == (60,)
 
     assert pm.draw(mbl['mu'].variable).shape == (1,)
-    assert isinstance(mbl['mu'], MinibatchComponent)
-    assert mbl['mu'].component == predicted
-    assert pm.draw(mbl['mu'].transformed_variable).shape == (60,)
+    assert isinstance(mbl['mu'], MinibatchDeterministic)
+    assert isinstance(mbl['mu'].component, FunctionComponent)
+    assert isinstance(mbl['mu'].component.args[0], MinibatchComponent)
+    assert mbl['mu'].component.args[0].component == k
+    assert isinstance(mbl['mu'].component.args[1], MinibatchComponent)
+    assert mbl['mu'].component.args[1].component == udc['u']
 
     assert pm.draw(mbl['observed'].variable).shape == (1,)
     assert isinstance(mbl['observed'], MinibatchComponent)
     assert mbl['observed'].component == xdc['y']
 
-    assert pm.draw(predicted.variable).shape == (2,30)
+    assert predicted.variable is None
 
     assert pm.draw(xdc['y'].variable).shape == (60,)
 
